@@ -1,5 +1,11 @@
 import * as Location from "expo-location";
-import { addDoc, collection } from "firebase/firestore";
+import {
+    addDoc,
+    collection,
+    onSnapshot,
+    query,
+    where,
+} from "firebase/firestore";
 import React, { useEffect, useState } from "react";
 import {
     Alert,
@@ -10,14 +16,17 @@ import {
     TouchableOpacity,
     View,
 } from "react-native";
-import MapView from "react-native-maps";
+import MapView, { Marker } from "react-native-maps";
 import { auth, db } from "../../firebaseConfig";
 
 export default function MapaTab() {
   const [ubicacion, setUbicacion] = useState<any>(null);
   const [nota, setNota] = useState("");
   const [esPublico, setEsPublico] = useState(false);
+  // 💡 LA PIEZA QUE FALTABA: Estado para almacenar los puntos
+  const [puntosGuardados, setPuntosGuardados] = useState<any[]>([]);
 
+  // 1. Obtener ubicación actual al cargar
   useEffect(() => {
     (async () => {
       let { status } = await Location.requestForegroundPermissionsAsync();
@@ -28,11 +37,34 @@ export default function MapaTab() {
     })();
   }, []);
 
+  // 2. 🛰️ ESCUCHAR FIREBASE: Traer los puntos en tiempo real
+  useEffect(() => {
+    if (!auth.currentUser) return;
+
+    const q = query(
+      collection(db, "ubicaciones"),
+      where("userId", "==", auth.currentUser.uid),
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const docs = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+      setPuntosGuardados(docs);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
   const registrarLugar = async () => {
-    if (!nota || !ubicacion) return;
+    if (!nota || !ubicacion) {
+      Alert.alert("Error", "Falta la nota o la ubicación");
+      return;
+    }
 
     try {
-      // Llamada a la API de backend para análisis IA
+      // 1. Llamar a la API (IA)
       const res = await fetch("/api/registro", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -40,36 +72,48 @@ export default function MapaTab() {
       });
       const { clasificacion } = await res.json();
 
+      // 2. Guardar en Firestore
       await addDoc(collection(db, "ubicaciones"), {
         userId: auth.currentUser?.uid,
         lat: ubicacion.latitude,
         lng: ubicacion.longitude,
         nota,
-        clasificacion,
+        clasificacion: clasificacion || "📍 Punto",
         esPublico,
-        favorito: false,
         fecha: new Date(),
       });
 
-      setNota("");
-      Alert.alert("Guardado", `Clasificado como: ${clasificacion}`);
-    } catch (e) {
-      Alert.alert("Error", "No se pudo guardar");
+      setNota(""); // Limpiar el input
+      Alert.alert("¡Éxito!", "Pin guardado correctamente");
+    } catch (error) {
+      console.error(error);
+      Alert.alert("Error", "No se pudo guardar en la base de datos");
     }
-  };
+  }; // <-- Asegúrate de que esta llave cierre la función
 
   return (
     <View style={styles.container}>
       <MapView
         style={styles.map}
-        showsUserLocation
+        showsUserLocation={true}
+        followsUserLocation={true}
         initialRegion={{
           latitude: ubicacion?.latitude || 20.65,
           longitude: ubicacion?.longitude || -103.34,
-          latitudeDelta: 0.01,
-          longitudeDelta: 0.01,
+          latitudeDelta: 0.005,
+          longitudeDelta: 0.005,
         }}
-      />
+      >
+        {/* 📍 RENDERIZAR MARCADORES */}
+        {puntosGuardados.map((punto) => (
+          <Marker
+            key={punto.id}
+            coordinate={{ latitude: punto.lat, longitude: punto.lng }}
+            title={punto.clasificacion}
+            description={punto.nota}
+          />
+        ))}
+      </MapView>
 
       <View style={styles.inputContainer}>
         <TextInput
