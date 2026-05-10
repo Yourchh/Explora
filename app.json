@@ -9,7 +9,11 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.jorge.bitacorageo",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "Esta aplicación requiere acceso a tu ubicación para mostrar tu posición en el mapa y guardar las notas georeferenciadas."
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -22,7 +26,7 @@
       "predictiveBackGestureEnabled": false
     },
     "web": {
-      "output": "static",
+      "output": "server",
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
@@ -37,6 +41,13 @@
           "dark": {
             "backgroundColor": "#000000"
           }
+        }
+      ],
+      "expo-maps",
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Permite a la aplicación guardar tus coordenadas para la bitácora."
         }
       ]
     ],
