@@ -12,26 +12,24 @@ export default function RootLayout() {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
+      console.log(
+        "👤 Estado de usuario cambiado:",
+        user ? "Logueado" : "Fuera",
+      );
       setUser(user);
-      if (initializing) setInitializing(false);
+      setInitializing(false); // Forzamos a que termine de inicializar
     });
-    return unsubscribe;
+
+    // Seguridad: Si en 5 segundos Firebase no responde, forzamos la entrada
+    const timer = setTimeout(() => {
+      if (initializing) setInitializing(false);
+    }, 5000);
+
+    return () => {
+      unsubscribe();
+      clearTimeout(timer);
+    };
   }, []);
-
-  useEffect(() => {
-    if (initializing) return;
-
-    // Revisamos si el usuario está en las pantallas de login/registro
-    const inAuthGroup = segments[0] === "(auth)";
-
-    if (!user && !inAuthGroup) {
-      // Si no hay usuario y no está en auth, mándalo a login
-      router.replace("/(auth)/login");
-    } else if (user && inAuthGroup) {
-      // Si hay usuario y está en auth, mándalo al mapa
-      router.replace("/(tabs)/mapa");
-    }
-  }, [user, initializing, segments]);
 
   if (initializing) {
     return (

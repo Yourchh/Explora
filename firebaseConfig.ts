@@ -1,10 +1,5 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { initializeApp } from "firebase/app";
-import {
-    // @ts-ignore
-    getReactNativePersistence,
-    initializeAuth,
-} from "firebase/auth";
+import { getAuth } from "firebase/auth"; // Cambiamos initializeAuth por getAuth
 import { getFirestore } from "firebase/firestore";
 
 const firebaseConfig = {
@@ -19,9 +14,6 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 
-// Inicializamos Auth con persistencia nativa
-export const auth = initializeAuth(app, {
-  persistence: getReactNativePersistence(AsyncStorage),
-});
-
+// Usar getAuth es mucho más estable para evitar que la app se quede "colgada" en el inicio
+export const auth = getAuth(app);
 export const db = getFirestore(app);
