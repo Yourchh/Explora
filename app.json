@@ -12,6 +12,8 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.jorge.bitacorageo",
       "infoPlist": {
+        "NSCameraUsageDescription": "Esta app necesita usar la cámara para tomar fotos de los lugares de tu bitácora.",
+        "NSPhotoLibraryUsageDescription": "Esta app necesita acceder a tu galería para subir fotos de los lugares.",
         "NSLocationWhenInUseUsageDescription": "Esta aplicación requiere acceso a tu ubicación para mostrar tu posición en el mapa y guardar las notas georeferenciadas."
       }
     },
@@ -23,7 +25,16 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.RECORD_AUDIO"
+      ],
+      "package": "com.jorge.bitacorageo"
     },
     "web": {
       "output": "server",
@@ -48,6 +59,13 @@
         "expo-location",
         {
           "locationAlwaysAndWhenInUsePermission": "Permite a la aplicación guardar tus coordenadas para la bitácora."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Permitir que la app acceda a tus fotos",
+          "cameraPermission": "Permitir que la app use la cámara"
         }
       ]
     ],

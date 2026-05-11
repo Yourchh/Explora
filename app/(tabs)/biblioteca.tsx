@@ -1,75 +1,846 @@
 import { Ionicons } from "@expo/vector-icons";
+import { BlurView } from "expo-blur";
+import * as ImagePicker from "expo-image-picker";
 import {
+    addDoc,
     collection,
+    deleteDoc,
+    doc,
     onSnapshot,
-    orderBy,
     query,
+    serverTimestamp,
+    updateDoc,
     where,
 } from "firebase/firestore";
-import React, { useEffect, useState } from "react";
-import { FlatList, StyleSheet, Text, View } from "react-native";
+import { getDownloadURL, getStorage, ref, uploadBytes } from "firebase/storage";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import {
+    ActivityIndicator,
+    Alert,
+    Dimensions,
+    FlatList,
+    Image,
+    KeyboardAvoidingView,
+    Linking,
+    Modal,
+    Platform,
+    ScrollView,
+    Share,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
+} from "react-native";
+import {
+    GestureHandlerRootView,
+    Swipeable,
+} from "react-native-gesture-handler";
 import { auth, db } from "../../firebaseConfig";
 
-export default function Biblioteca() {
-  const [misLugares, setMisLugares] = useState<any[]>([]);
+const { width: SCREEN_WIDTH } = Dimensions.get("window");
+const HEADER_HEIGHT = Platform.OS === "ios" ? 210 : 190;
+
+export default function BibliotecaTab() {
+  const [misPuntos, setMisPuntos] = useState<any[]>([]);
+  const [cargando, setCargando] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [sortBy, setSortBy] = useState<
+    "favoritos" | "recientes" | "nombre" | "zona"
+  >("recientes");
+
+  // Modales
+  const [modalVisible, setModalVisible] = useState(false);
+  const [detalleVisible, setDetalleVisible] = useState(false);
+  const [lugarSeleccionado, setLugarSeleccionado] = useState<any>(null);
+
+  // Estados edición
+  const [editTitulo, setEditTitulo] = useState("");
+  const [editDesc, setEditDesc] = useState("");
+  const [editTags, setEditTags] = useState("");
+  const [editFotos, setEditFotos] = useState<string[]>([]);
+
+  // Estados de comentarios (Para el nuevo modal)
+  const [comentario, setComentario] = useState("");
+  const [rating, setRating] = useState(5);
+  const [listaComentarios, setListaComentarios] = useState<any[]>([]);
+  const [enviandoComentario, setEnviandoComentario] = useState(false);
+
+  const swipeRefs = useRef<Map<string, Swipeable>>(new Map());
 
   useEffect(() => {
     if (!auth.currentUser) return;
-
     const q = query(
       collection(db, "ubicaciones"),
       where("userId", "==", auth.currentUser.uid),
-      orderBy("fecha", "desc"),
     );
-
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const data = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
-      setMisLugares(data);
+    return onSnapshot(q, (snapshot) => {
+      setMisPuntos(snapshot.docs.map((d) => ({ ...d.data(), idDoc: d.id })));
     });
-
-    return () => unsubscribe();
   }, []);
 
-  const renderItem = ({ item }: any) => (
-    <View style={styles.card}>
-      <View style={{ flex: 1 }}>
-        <Text style={styles.cardTitulo}>
-          {item.clasificacion || "📍 Lugar"}
-        </Text>
-        <Text style={styles.cardNota}>{item.nota}</Text>
-      </View>
-      {item.esPublico && (
-        <Ionicons name="globe-outline" size={16} color="#8E8E93" />
-      )}
+  // Listener para comentarios del lugar seleccionado
+  useEffect(() => {
+    if (!lugarSeleccionado) return;
+    const q = query(
+      collection(db, "ubicaciones", lugarSeleccionado.idDoc, "comentarios"),
+    );
+    return onSnapshot(q, (snap) => {
+      setListaComentarios(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+    });
+  }, [lugarSeleccionado]);
+
+  const puntosFiltrados = useMemo(() => {
+    let resultado = misPuntos.filter((p) => {
+      const cumpleBuscador =
+        p.titulo?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        p.hashtags?.toLowerCase().includes(searchQuery.toLowerCase());
+      const cumpleChipFavoritos =
+        sortBy === "favoritos" ? p.destacado === true : true;
+      return cumpleBuscador && cumpleChipFavoritos;
+    });
+
+    if (sortBy === "nombre")
+      return resultado.sort((a, b) => a.titulo.localeCompare(b.titulo));
+    if (sortBy === "zona")
+      return resultado.sort((a, b) =>
+        (a.clasificacion || "").localeCompare(b.clasificacion || ""),
+      );
+    return resultado.sort(
+      (a, b) => (b.fecha?.seconds || 0) - (a.fecha?.seconds || 0),
+    );
+  }, [misPuntos, searchQuery, sortBy]);
+
+  const trazarRuta = (item: any) => {
+    if (!item?.lat || !item?.lng)
+      return Alert.alert("Error", "Coordenadas no válidas");
+    const label = encodeURIComponent(item.titulo);
+    const url = Platform.select({
+      ios: `maps:0,0?q=${label}@${item.lat},${item.lng}`,
+      android: `geo:0,0?q=${item.lat},${item.lng}(${label})`,
+    });
+    if (url) Linking.openURL(url);
+  };
+
+  const toggleDestacado = async (item: any) => {
+    await updateDoc(doc(db, "ubicaciones", item.idDoc), {
+      destacado: !item.destacado,
+    });
+  };
+
+  const seleccionarImagenEdicion = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      quality: 0.5,
+    });
+    if (!result.canceled) setEditFotos([...editFotos, result.assets[0].uri]);
+  };
+
+  const guardarCambios = async () => {
+    if (!editTitulo.trim()) return Alert.alert("Error", "Falta título");
+    setCargando(true);
+    try {
+      const fotosFinales = await Promise.all(
+        editFotos.map(async (uri) => {
+          if (uri.startsWith("http")) return uri;
+          const res = await fetch(uri);
+          const blob = await res.blob();
+          const storageRef = ref(
+            getStorage(),
+            `puntos/${auth.currentUser?.uid}/${Date.now()}-${Math.random()}`,
+          );
+          await uploadBytes(storageRef, blob);
+          return await getDownloadURL(storageRef);
+        }),
+      );
+      await updateDoc(doc(db, "ubicaciones", lugarSeleccionado.idDoc), {
+        titulo: editTitulo,
+        descripcion: editDesc,
+        hashtags: editTags,
+        fotos: fotosFinales,
+      });
+      setModalVisible(false);
+      Alert.alert("Éxito", "Lugar actualizado.");
+    } catch (e) {
+      Alert.alert("Error", "No se pudo guardar.");
+    } finally {
+      setCargando(false);
+    }
+  };
+
+  const enviarComentario = async () => {
+    if (!comentario.trim()) return;
+    setEnviandoComentario(true);
+    try {
+      await addDoc(
+        collection(db, "ubicaciones", lugarSeleccionado.idDoc, "comentarios"),
+        {
+          usuario: auth.currentUser?.email || "Anónimo",
+          texto: comentario,
+          calificacion: rating,
+          fecha: serverTimestamp(),
+        },
+      );
+      setComentario("");
+    } catch (e) {
+      Alert.alert("Error", "No se pudo enviar el comentario");
+    } finally {
+      setEnviandoComentario(false);
+    }
+  };
+
+  const renderRightActions = (item: any) => (
+    <View style={styles.swipeActions}>
+      <TouchableOpacity
+        style={[styles.swipeBtn, { backgroundColor: "#007AFF" }]}
+        onPress={() => {
+          setLugarSeleccionado(item);
+          setEditTitulo(item.titulo || "");
+          setEditDesc(item.descripcion || "");
+          setEditTags(item.hashtags || "");
+          setEditFotos(item.fotos || []);
+          setModalVisible(true);
+        }}
+      >
+        <Ionicons name="pencil" size={20} color="#FFF" />
+      </TouchableOpacity>
+      <TouchableOpacity
+        style={[styles.swipeBtn, { backgroundColor: "#FF3B30" }]}
+        onPress={() => {
+          Alert.alert("Borrar", "¿Eliminar permanentemente?", [
+            {
+              text: "Sí",
+              onPress: () => deleteDoc(doc(db, "ubicaciones", item.idDoc)),
+            },
+            { text: "No" },
+          ]);
+        }}
+      >
+        <Ionicons name="trash" size={20} color="#FFF" />
+      </TouchableOpacity>
     </View>
   );
 
   return (
-    <View style={styles.container}>
-      <FlatList
-        data={misLugares}
-        keyExtractor={(item) => item.id}
-        renderItem={renderItem}
-        contentContainerStyle={{ padding: 20 }}
-        ListEmptyComponent={
-          <Text style={styles.vacio}>Aún no has guardado lugares.</Text>
-        }
-      />
-    </View>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <View style={styles.container}>
+        <FlatList
+          data={puntosFiltrados}
+          keyExtractor={(item) => item.idDoc}
+          contentContainerStyle={[
+            styles.listContent,
+            { paddingTop: HEADER_HEIGHT + 10 },
+          ]}
+          showsVerticalScrollIndicator={false}
+          renderItem={({ item }) => (
+            <Swipeable
+              ref={(ref) => {
+                if (ref) swipeRefs.current.set(item.idDoc, ref);
+              }}
+              renderRightActions={() => renderRightActions(item)}
+              onSwipeableOpen={() => {
+                setTimeout(() => {
+                  swipeRefs.current.get(item.idDoc)?.close();
+                }, 1500);
+              }}
+            >
+              <TouchableOpacity
+                style={styles.card}
+                onPress={() => {
+                  setLugarSeleccionado(item);
+                  setDetalleVisible(true);
+                }}
+                onLongPress={() => {
+                  Alert.alert(item.titulo, "Opciones rápidas", [
+                    {
+                      text: item.destacado
+                        ? "⭐ Quitar destacado"
+                        : "⭐ Destacar",
+                      onPress: () => toggleDestacado(item),
+                    },
+                    {
+                      text: item.esPublico ? "🔒 Privado" : "🌎 Público",
+                      onPress: () =>
+                        updateDoc(doc(db, "ubicaciones", item.idDoc), {
+                          esPublico: !item.esPublico,
+                        }),
+                    },
+                    {
+                      text: "📤 Compartir",
+                      onPress: () =>
+                        Share.share({
+                          message: `¡Mira este lugar: ${item.titulo}!`,
+                        }),
+                    },
+                    { text: "Cancelar", style: "cancel" },
+                  ]);
+                }}
+              >
+                <View style={styles.thumbContainer}>
+                  <Image
+                    source={{ uri: item.fotos?.[0] }}
+                    style={styles.thumb}
+                  />
+                  {item.destacado && (
+                    <View style={styles.starBadge}>
+                      <Ionicons name="star" size={12} color="#FFF" />
+                    </View>
+                  )}
+                </View>
+                <View style={styles.info}>
+                  <View style={styles.metaRowHorizontal}>
+                    <Ionicons
+                      name={item.esPublico ? "earth" : "lock-closed"}
+                      size={12}
+                      color="#8E8E93"
+                    />
+                    <Text style={styles.metaTextSmall}>
+                      {item.esPublico ? "Público" : "Privado"}
+                    </Text>
+                  </View>
+                  <Text style={styles.title} numberOfLines={1}>
+                    {item.titulo}
+                  </Text>
+                  <Text style={styles.tags} numberOfLines={1}>
+                    {item.hashtags}
+                  </Text>
+                </View>
+                <Ionicons name="chevron-forward" size={14} color="#C7C7CC" />
+              </TouchableOpacity>
+            </Swipeable>
+          )}
+        />
+
+        <BlurView intensity={90} tint="light" style={styles.headerGlass}>
+          <View style={styles.headerContent}>
+            <View style={styles.searchContainer}>
+              <Ionicons
+                name="search"
+                size={18}
+                color="#8E8E93"
+                style={{ marginRight: 8 }}
+              />
+              <TextInput
+                placeholder="Buscar en mis guardados..."
+                style={styles.searchInput}
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                placeholderTextColor="#8E8E93"
+              />
+            </View>
+
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={styles.filterBar}
+            >
+              {["favoritos", "recientes", "nombre", "zona"].map((s) => (
+                <TouchableOpacity
+                  key={s}
+                  onPress={() => setSortBy(s as any)}
+                  style={[styles.chip, sortBy === s && styles.chipActive]}
+                >
+                  <Text
+                    style={[
+                      styles.chipText,
+                      sortBy === s && styles.chipTextActive,
+                    ]}
+                  >
+                    {s.toUpperCase()}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        </BlurView>
+
+        {/* MODAL DETALLE (ESTILO PREMIUM IMAGE CABECERA) */}
+        <Modal visible={detalleVisible} animationType="slide" transparent>
+          <View style={styles.modalOverlayFull}>
+            <TouchableOpacity
+              style={styles.closeFloatTransparent}
+              onPress={() => setDetalleVisible(false)}
+            >
+              <Ionicons name="close" size={24} color="#000" />
+            </TouchableOpacity>
+
+            {lugarSeleccionado && (
+              <ScrollView showsVerticalScrollIndicator={false} bounces={true}>
+                {/* Carrusel de Imagenes Superior */}
+                <ScrollView
+                  horizontal
+                  pagingEnabled
+                  showsHorizontalScrollIndicator={false}
+                >
+                  {lugarSeleccionado.fotos?.map((f: string, i: number) => (
+                    <Image
+                      key={i}
+                      source={{ uri: f }}
+                      style={styles.heroImage}
+                    />
+                  ))}
+                </ScrollView>
+
+                {/* Hoja de Detalles (Sheet) */}
+                <View style={styles.detailSheetContainer}>
+                  <Text style={styles.sheetTitle}>
+                    {lugarSeleccionado.titulo}
+                  </Text>
+                  <Text style={styles.sheetDescription}>
+                    {lugarSeleccionado.descripcion ||
+                      "Este lugar no tiene una descripción detallada todavía."}
+                  </Text>
+
+                  <TouchableOpacity
+                    style={styles.btnTrazarRuta}
+                    onPress={() => trazarRuta(lugarSeleccionado)}
+                  >
+                    <Ionicons name="paper-plane" size={20} color="#FFF" />
+                    <Text style={styles.btnTextWhite}>Trazar Ruta</Text>
+                  </TouchableOpacity>
+
+                  <View style={styles.sheetDivider} />
+
+                  <Text style={styles.sheetSectionTitle}>
+                    Reseñas ({listaComentarios.length})
+                  </Text>
+
+                  {/* Estrellas Interactivas */}
+                  <View style={styles.starsRowInteractive}>
+                    {[1, 2, 3, 4, 5].map((s) => (
+                      <TouchableOpacity key={s} onPress={() => setRating(s)}>
+                        <Ionicons
+                          name={s <= rating ? "star" : "star-outline"}
+                          size={28}
+                          color="#FFCC00"
+                        />
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+
+                  {/* Input de Comentario Estilo Imagen */}
+                  <View style={styles.commentInputWrapper}>
+                    <TextInput
+                      placeholder="Añade un comentario..."
+                      style={styles.inputComment}
+                      value={comentario}
+                      onChangeText={setComentario}
+                    />
+                    <TouchableOpacity onPress={enviarComentario}>
+                      {enviandoComentario ? (
+                        <ActivityIndicator size="small" />
+                      ) : (
+                        <Ionicons name="send" size={22} color="#007AFF" />
+                      )}
+                    </TouchableOpacity>
+                  </View>
+
+                  {/* Lista de Comentarios */}
+                  {listaComentarios.map((c) => (
+                    <View key={c.id} style={styles.commentCardSmall}>
+                      <View style={styles.commentHeaderRow}>
+                        <Text style={styles.commentUserText}>
+                          {c.usuario?.split("@")[0]}
+                        </Text>
+                        <View style={styles.row}>
+                          <Ionicons name="star" size={10} color="#FFCC00" />
+                          <Text style={styles.commentRatingText}>
+                            {c.calificacion}
+                          </Text>
+                        </View>
+                      </View>
+                      <Text style={styles.commentBodyText}>{c.texto}</Text>
+                    </View>
+                  ))}
+
+                  {/* Padding inferior para Scroll */}
+                  <View style={{ height: 100 }} />
+                </View>
+              </ScrollView>
+            )}
+          </View>
+        </Modal>
+
+        {/* MODAL EDICIÓN PREMIUM (Mantenido igual) */}
+        <Modal visible={modalVisible} animationType="slide" transparent>
+          <KeyboardAvoidingView
+            behavior={Platform.OS === "ios" ? "padding" : "height"}
+            style={{ flex: 1 }}
+          >
+            <BlurView
+              intensity={30}
+              tint="dark"
+              style={styles.modalOverlayEdit}
+            >
+              <View style={styles.modalContent}>
+                <View style={styles.modalIndicator} />
+                <View style={styles.modalHeader}>
+                  <Text style={styles.modalTitleText}>Editar Detalles</Text>
+                  <TouchableOpacity
+                    onPress={() => setModalVisible(false)}
+                    style={styles.closeCircle}
+                  >
+                    <Ionicons name="close" size={20} color="#666" />
+                  </TouchableOpacity>
+                </View>
+                <ScrollView
+                  showsVerticalScrollIndicator={false}
+                  contentContainerStyle={{ paddingBottom: 40 }}
+                >
+                  <Text style={styles.sectionLabel}>Galería de Fotos</Text>
+                  <View style={styles.photoGrid}>
+                    <TouchableOpacity
+                      style={styles.addBtnSmall}
+                      onPress={seleccionarImagenEdicion}
+                    >
+                      <View style={styles.addIconCircle}>
+                        <Ionicons name="camera" size={22} color="#007AFF" />
+                      </View>
+                      <Text style={styles.addPhotoText}>Añadir</Text>
+                    </TouchableOpacity>
+                    <ScrollView
+                      horizontal
+                      showsHorizontalScrollIndicator={false}
+                    >
+                      {editFotos.map((uri, idx) => (
+                        <View key={idx} style={styles.editThumbContainer}>
+                          <Image source={{ uri }} style={styles.editThumb} />
+                          <TouchableOpacity
+                            style={styles.deletePhotoBadge}
+                            onPress={() =>
+                              setEditFotos(
+                                editFotos.filter((_, i) => i !== idx),
+                              )
+                            }
+                          >
+                            <Ionicons name="trash" size={12} color="#FFF" />
+                          </TouchableOpacity>
+                        </View>
+                      ))}
+                    </ScrollView>
+                  </View>
+                  <View style={styles.inputGroupContainer}>
+                    <TextInput
+                      placeholder="Título"
+                      style={styles.inputModern}
+                      value={editTitulo}
+                      onChangeText={setEditTitulo}
+                      placeholderTextColor="#A9A9AC"
+                    />
+                    <View style={styles.inputDivider} />
+                    <TextInput
+                      placeholder="#etiquetas"
+                      style={styles.inputModern}
+                      value={editTags}
+                      onChangeText={setEditTags}
+                      placeholderTextColor="#A9A9AC"
+                    />
+                  </View>
+                  <TextInput
+                    placeholder="Descripción..."
+                    style={[styles.inputModern, styles.textAreaModern]}
+                    value={editDesc}
+                    onChangeText={setEditDesc}
+                    multiline
+                    placeholderTextColor="#A9A9AC"
+                  />
+                  <TouchableOpacity
+                    style={styles.saveBtnPremium}
+                    onPress={guardarCambios}
+                    disabled={cargando}
+                  >
+                    {cargando ? (
+                      <ActivityIndicator color="#FFF" />
+                    ) : (
+                      <Text style={styles.saveBtnText}>Guardar Cambios</Text>
+                    )}
+                  </TouchableOpacity>
+                </ScrollView>
+              </View>
+            </BlurView>
+          </KeyboardAvoidingView>
+        </Modal>
+      </View>
+    </GestureHandlerRootView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#fff" },
+  container: { flex: 1, backgroundColor: "#F2F2F7" },
+  headerGlass: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 100,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: "rgba(0,0,0,0.1)",
+  },
+  headerContent: {
+    paddingTop: Platform.OS === "ios" ? 80 : 45,
+    paddingHorizontal: 20,
+    paddingBottom: 15,
+  },
+  searchContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(0,0,0,0.05)",
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    height: 45,
+  },
+  searchInput: { flex: 1, fontSize: 14, fontWeight: "500", color: "#000" },
+  filterBar: { marginTop: 20, flexDirection: "row" },
+  chip: {
+    paddingHorizontal: 15,
+    paddingVertical: 8,
+    marginRight: 10,
+    borderRadius: 15,
+    backgroundColor: "rgba(255,255,255,0.5)",
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: "rgba(0,0,0,0.1)",
+  },
+  chipActive: { backgroundColor: "#000" },
+  chipText: { fontSize: 11, fontWeight: "800", color: "#8E8E93" },
+  chipTextActive: { color: "#FFF" },
+  listContent: { paddingHorizontal: 16, paddingBottom: 120 },
   card: {
     flexDirection: "row",
-    backgroundColor: "#F2F2F7",
-    padding: 20,
-    borderRadius: 16,
+    backgroundColor: "#fff",
+    borderRadius: 18,
     marginBottom: 12,
+    padding: 12,
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOpacity: 0.04,
+    shadowRadius: 10,
+    elevation: 2,
+  },
+  thumbContainer: { position: "relative" },
+  thumb: {
+    width: 85,
+    height: 85,
+    borderRadius: 14,
+    backgroundColor: "#F2F2F7",
+  },
+  starBadge: {
+    position: "absolute",
+    top: -8,
+    left: -8,
+    backgroundColor: "#FFCC00",
+    borderRadius: 12,
+    padding: 4,
+    borderWidth: 2,
+    borderColor: "#FFF",
+  },
+  info: { flex: 1, marginRight: 15, marginLeft: 15, justifyContent: "center" },
+  title: { fontWeight: "800", fontSize: 15, color: "#1C1C1E" },
+  tags: { color: "#007AFF", fontSize: 11, marginVertical: 3 },
+  metaRowHorizontal: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    marginBottom: 4,
+  },
+  metaTextSmall: { fontSize: 10, color: "#8E8E93", fontWeight: "600" },
+  row: { flexDirection: "row", alignItems: "center", gap: 3 },
+
+  // --- NUEVOS ESTILOS MODAL DETALLES (ESTILO IMAGEN) ---
+  modalOverlayFull: { flex: 1, backgroundColor: "#FFF" },
+  heroImage: { width: SCREEN_WIDTH, height: 450, resizeMode: "cover" },
+  closeFloatTransparent: {
+    position: "absolute",
+    top: 50,
+    right: 20,
+    zIndex: 110,
+    backgroundColor: "rgba(255,255,255,0.6)",
+    borderRadius: 20,
+    padding: 8,
+  },
+  detailSheetContainer: {
+    backgroundColor: "#FFF",
+    borderTopLeftRadius: 40,
+    borderTopRightRadius: 40,
+    marginTop: -50,
+    paddingHorizontal: 30,
+    paddingTop: 35,
+    minHeight: 600,
+  },
+  sheetTitle: {
+    fontSize: 28,
+    fontWeight: "900",
+    color: "#000",
+    marginBottom: 15,
+    lineHeight: 34,
+  },
+  sheetDescription: {
+    fontSize: 16,
+    color: "#666",
+    lineHeight: 24,
+    marginBottom: 30,
+  },
+  btnTrazarRuta: {
+    backgroundColor: "#000",
+    borderRadius: 20,
+    paddingVertical: 18,
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 12,
+    marginBottom: 25,
+  },
+  btnTextWhite: { color: "#FFF", fontWeight: "800", fontSize: 17 },
+  sheetDivider: { height: 1, backgroundColor: "#F2F2F7", marginVertical: 15 },
+  sheetSectionTitle: {
+    fontSize: 20,
+    fontWeight: "800",
+    color: "#000",
+    marginBottom: 10,
+  },
+  starsRowInteractive: { flexDirection: "row", gap: 8, marginBottom: 20 },
+  commentInputWrapper: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#F2F2F7",
+    borderRadius: 15,
+    paddingHorizontal: 15,
+    paddingVertical: 12,
+    marginBottom: 25,
+  },
+  inputComment: { flex: 1, fontSize: 15, color: "#000" },
+  commentCardSmall: {
+    marginBottom: 15,
+    backgroundColor: "#F9F9F9",
+    padding: 12,
+    borderRadius: 15,
+  },
+  commentHeaderRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 5,
+  },
+  commentUserText: { fontWeight: "700", fontSize: 14 },
+  commentRatingText: { fontSize: 12, fontWeight: "600", color: "#666" },
+  commentBodyText: { fontSize: 14, color: "#444" },
+
+  // ACCIONES SWIPE
+  swipeActions: { flexDirection: "row", width: 150, marginBottom: 14 },
+  swipeBtn: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    borderRadius: 22,
+    marginLeft: 10,
+  },
+
+  // MODAL EDICIÓN PREMIUM
+  modalOverlayEdit: { flex: 1, justifyContent: "flex-end" },
+  modalContent: {
+    backgroundColor: "#FFF",
+    height: "85%",
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
+    paddingHorizontal: 24,
+  },
+  modalIndicator: {
+    width: 36,
+    height: 5,
+    backgroundColor: "#E2E2E7",
+    borderRadius: 3,
+    alignSelf: "center",
+    marginTop: 10,
+    marginBottom: 20,
+  },
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 24,
+  },
+  modalTitleText: { fontSize: 24, fontWeight: "800", color: "#1C1C1E" },
+  closeCircle: { backgroundColor: "#F2F2F7", padding: 8, borderRadius: 20 },
+  sectionLabel: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#8E8E93",
+    marginBottom: 12,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  photoGrid: { flexDirection: "row", marginBottom: 28, alignItems: "center" },
+  addBtnSmall: {
+    width: 82,
+    height: 82,
+    borderRadius: 18,
+    backgroundColor: "#F2F2F7",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 12,
+    borderWidth: 1,
+    borderColor: "#E5E5EA",
+    borderStyle: "dashed",
+  },
+  addIconCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "#FFF",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 4,
+  },
+  addPhotoText: { fontSize: 11, fontWeight: "700", color: "#007AFF" },
+  editThumbContainer: { marginRight: 12, position: "relative" },
+  editThumb: {
+    width: 82,
+    height: 82,
+    borderRadius: 18,
+    backgroundColor: "#F2F2F7",
+  },
+  deletePhotoBadge: {
+    position: "absolute",
+    top: -6,
+    right: -6,
+    backgroundColor: "#FF3B30",
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 2,
+    borderColor: "#FFF",
+    zIndex: 10,
+  },
+  inputGroupContainer: {
+    backgroundColor: "#F2F2F7",
+    borderRadius: 20,
+    marginBottom: 24,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "#E5E5EA",
+  },
+  inputModern: {
+    padding: 16,
+    fontSize: 17,
+    color: "#1C1C1E",
+    fontWeight: "500",
+  },
+  inputDivider: { height: 1, backgroundColor: "#E5E5EA", marginHorizontal: 16 },
+  textAreaModern: {
+    height: 120,
+    textAlignVertical: "top",
+    backgroundColor: "#F2F2F7",
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "#E5E5EA",
+    marginBottom: 32,
+  },
+  saveBtnPremium: {
+    backgroundColor: "#007AFF",
+    padding: 18,
+    borderRadius: 20,
     alignItems: "center",
   },
-  cardTitulo: { fontSize: 17, fontWeight: "600", marginBottom: 4 },
-  cardNota: { fontSize: 14, color: "#3A3A3C" },
-  vacio: { textAlign: "center", marginTop: 50, color: "#8E8E93" },
+  saveBtnText: { color: "#FFF", fontWeight: "800", fontSize: 18 },
 });
