@@ -1,4 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 import { BlurView } from "expo-blur";
 import * as Location from "expo-location";
 import {
@@ -14,6 +15,7 @@ import {
 import React, { useEffect, useMemo, useState } from "react";
 import {
     ActivityIndicator,
+    Alert,
     FlatList,
     Image,
     KeyboardAvoidingView,
@@ -30,8 +32,10 @@ import {
 } from "react-native";
 import { auth, db } from "../../firebaseConfig";
 
-// Definimos la altura del Header para usarla en los cálculos de padding
 const HEADER_HEIGHT = Platform.OS === "ios" ? 200 : 180;
+
+const genAI = new GoogleGenerativeAI(process.env.EXPO_PUBLIC_GEMINI_API_KEY!);
+const modelIA = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
 export default function BuscarTab() {
   const [search, setSearch] = useState("");
@@ -46,6 +50,11 @@ export default function BuscarTab() {
   const [rating, setRating] = useState(5);
   const [listaComentarios, setListaComentarios] = useState<any[]>([]);
   const [enviandoComentario, setEnviandoComentario] = useState(false);
+
+  // Estados de IA
+  const [resumenIA, setResumenIA] = useState("");
+  const [generandoResumen, setGenerandoResumen] = useState(false);
+  const [mejorandoResena, setMejorandoResena] = useState(false);
 
   useEffect(() => {
     actualizarGPS();
@@ -72,7 +81,6 @@ export default function BuscarTab() {
       const data = querySnapshot.docs
         .map((doc) => ({ id: doc.id, ...doc.data() }))
         .filter((item: any) => item.titulo);
-
       setLugares(data);
     } catch (error) {
       console.log("Error al cargar:", error);
@@ -81,15 +89,54 @@ export default function BuscarTab() {
     }
   };
 
+  // 💡 IA: Generar resumen de todos los comentarios
+  const generarResumenComentarios = async () => {
+    if (listaComentarios.length === 0) return;
+    setGenerandoResumen(true);
+    try {
+      const textoComentarios = listaComentarios.map((c) => c.texto).join(" | ");
+      const prompt = `Analiza los siguientes comentarios sobre un lugar y genera un resumen muy corto (máximo 2 líneas) que destaque lo mejor y lo peor: "${textoComentarios}"`;
+      const result = await modelIA.generateContent(prompt);
+      setResumenIA(result.response.text());
+    } catch (error) {
+      console.log("Error IA Resumen:", error);
+    } finally {
+      setGenerandoResumen(false);
+    }
+  };
+
+  // 💡 IA: MEJORAR LA RESEÑA (Lógica corregida)
+  const mejorarResenaIA = async () => {
+    setMejorandoResena(true);
+    try {
+      let prompt = "";
+      // Si el usuario ya escribió algo, el prompt pide mejorar el texto existente
+      if (comentario.trim().length > 0) {
+        prompt = `Actúa como un editor experto. Mejora, profesionaliza y haz más atractiva la siguiente reseña para un lugar al que califiqué con ${rating} estrellas, manteniendo mi idea original pero con mejor redacción: "${comentario}". Devuelve solo el texto mejorado sin comillas.`;
+      } else {
+        // Si el campo está vacío, sugiere una reseña desde cero basada en el rating
+        prompt = `Genera una reseña breve, natural y entusiasta de una sola oración para un lugar al que califiqué con ${rating} de 5 estrellas. Devuelve solo el texto sin comillas.`;
+      }
+
+      const result = await modelIA.generateContent(prompt);
+      const textoFinal = result.response.text().trim().replace(/"/g, "");
+      setComentario(textoFinal);
+    } catch (error) {
+      console.log("Error IA Mejorar:", error);
+      Alert.alert("Error", "No se pudo mejorar la reseña en este momento.");
+    } finally {
+      setMejorandoResena(false);
+    }
+  };
+
   const lugaresFiltrados = useMemo(() => {
-    let filtrados = lugares.filter((item) => {
+    return lugares.filter((item) => {
       const searchLower = search.toLowerCase().trim();
       const cumpleBusqueda =
         searchLower === "" ||
         item.titulo?.toLowerCase().includes(searchLower) ||
         item.hashtags?.toLowerCase().includes(searchLower) ||
         item.clasificacion?.toLowerCase().includes(searchLower);
-
       if (filtroActivo === "Todo") return cumpleBusqueda;
       const tagLimpio = filtroActivo.replace("# ", "").toLowerCase();
       return (
@@ -98,11 +145,14 @@ export default function BuscarTab() {
           item.clasificacion?.toLowerCase().includes(tagLimpio))
       );
     });
-    return filtrados;
   }, [search, filtroActivo, lugares]);
 
   useEffect(() => {
-    if (!lugarSeleccionado) return;
+    if (!lugarSeleccionado) {
+      setResumenIA("");
+      setComentario("");
+      return;
+    }
     const q = query(
       collection(db, "ubicaciones", lugarSeleccionado.id, "comentarios"),
       orderBy("fecha", "desc"),
@@ -130,11 +180,9 @@ export default function BuscarTab() {
 
   return (
     <View style={styles.container}>
-      {/* 🟢 LISTA DE LUGARES: Ahora ocupa toda la pantalla de fondo */}
       <FlatList
         data={lugaresFiltrados}
         keyExtractor={(item) => item.id}
-        // 💡 PaddingTop igual a la altura del Header para que empiece abajo
         contentContainerStyle={[
           styles.listContainer,
           { paddingTop: HEADER_HEIGHT + 10 },
@@ -144,7 +192,7 @@ export default function BuscarTab() {
           <RefreshControl
             refreshing={cargando}
             onRefresh={cargarLugares}
-            progressViewOffset={HEADER_HEIGHT} // Ajusta el spinner para que no se tape
+            progressViewOffset={HEADER_HEIGHT}
           />
         }
         renderItem={({ item }) => {
@@ -187,7 +235,6 @@ export default function BuscarTab() {
         }}
       />
 
-      {/* 🍏 HEADER TRASLÚCIDO (Glassmorphism) */}
       <BlurView intensity={90} tint="light" style={styles.headerGlass}>
         <View style={styles.headerContent}>
           <View style={styles.searchRow}>
@@ -232,7 +279,6 @@ export default function BuscarTab() {
         </View>
       </BlurView>
 
-      {/* MODAL DE DETALLES (Sin cambios de funcionalidad) */}
       <Modal visible={!!lugarSeleccionado} animationType="slide" transparent>
         <KeyboardAvoidingView
           behavior={Platform.OS === "ios" ? "padding" : undefined}
@@ -258,6 +304,30 @@ export default function BuscarTab() {
                   <Text style={styles.modalDesc}>
                     {lugarSeleccionado.descripcion}
                   </Text>
+
+                  {/* 💡 SECCIÓN IA: RESUMEN DE COMENTARIOS */}
+                  {listaComentarios.length > 0 && (
+                    <View style={styles.aiContainer}>
+                      <TouchableOpacity
+                        style={styles.aiButton}
+                        onPress={generarResumenComentarios}
+                        disabled={generandoResumen}
+                      >
+                        {generandoResumen ? (
+                          <ActivityIndicator size="small" color="#007AFF" />
+                        ) : (
+                          <Ionicons name="sparkles" size={16} color="#007AFF" />
+                        )}
+                        <Text style={styles.aiButtonText}>
+                          ¿Qué dice la comunidad? (IA)
+                        </Text>
+                      </TouchableOpacity>
+                      {resumenIA ? (
+                        <Text style={styles.resumenIAtext}>{resumenIA}</Text>
+                      ) : null}
+                    </View>
+                  )}
+
                   <TouchableOpacity
                     style={styles.routeBtn}
                     onPress={() =>
@@ -271,10 +341,33 @@ export default function BuscarTab() {
                     <Ionicons name="navigate" size={20} color="#FFF" />
                     <Text style={styles.routeBtnText}>Trazar Ruta</Text>
                   </TouchableOpacity>
+
                   <View style={styles.divider} />
-                  <Text style={styles.sectionTitle}>
-                    Reseñas ({listaComentarios.length})
-                  </Text>
+
+                  <View style={styles.headerResenas}>
+                    <Text style={styles.sectionTitle}>
+                      Reseñas ({listaComentarios.length})
+                    </Text>
+
+                    {/* 💡 BOTÓN IA ACTUALIZADO: MEJORAR RESEÑA */}
+                    <TouchableOpacity
+                      style={styles.aiHelper}
+                      onPress={mejorarResenaIA}
+                      disabled={mejorandoResena}
+                    >
+                      {mejorandoResena ? (
+                        <ActivityIndicator size="small" color="#007AFF" />
+                      ) : (
+                        <Ionicons name="sparkles" size={14} color="#007AFF" />
+                      )}
+                      <Text style={[styles.aiHelperText, { color: "#007AFF" }]}>
+                        {comentario.trim().length > 0
+                          ? "Mejorar con IA"
+                          : "Sugerir con IA"}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+
                   <View style={styles.starsRow}>
                     {[1, 2, 3, 4, 5].map((s) => (
                       <TouchableOpacity key={s} onPress={() => setRating(s)}>
@@ -288,10 +381,11 @@ export default function BuscarTab() {
                   </View>
                   <View style={styles.commentInputContainer}>
                     <TextInput
-                      placeholder="Añade un comentario..."
+                      placeholder="Escribe tu opinión aquí..."
                       style={styles.commentInput}
                       value={comentario}
                       onChangeText={setComentario}
+                      multiline={true}
                     />
                     <TouchableOpacity
                       onPress={async () => {
@@ -350,13 +444,12 @@ export default function BuscarTab() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#F2F2F7" },
-
   headerGlass: {
-    position: "absolute", // Flota sobre la lista
+    position: "absolute",
     top: 0,
     left: 0,
     right: 0,
-    zIndex: 100, // Siempre al frente
+    zIndex: 100,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: "rgba(0,0,0,0.1)",
   },
@@ -376,7 +469,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "rgba(0,0,0,0.05)",
-    borderRadius: 20,
+    borderRadius: 12,
     paddingHorizontal: 12,
     height: 45,
   },
@@ -391,7 +484,6 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: "rgba(0,0,0,0.1)",
   },
-
   filterContainer: { marginTop: 5 },
   filterScroll: { gap: 8, alignItems: "center" },
   chip: {
@@ -405,10 +497,7 @@ const styles = StyleSheet.create({
   chipActive: { backgroundColor: "#000" },
   chipText: { fontSize: 12, fontWeight: "700", color: "#8E8E93" },
   chipTextActive: { color: "#FFF" },
-
   listContainer: { padding: 16, paddingBottom: 120 },
-
-  // 💡 TARJETAS
   card: {
     flexDirection: "row",
     backgroundColor: "#fff",
@@ -451,8 +540,6 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   tags: { color: "#007AFF", fontSize: 11, marginBottom: 6 },
-
-  // Modal
   modalContent: {
     flex: 1,
     marginTop: 50,
@@ -465,6 +552,42 @@ const styles = StyleSheet.create({
   modalBody: { padding: 25 },
   modalTitle: { fontSize: 26, fontWeight: "900", marginBottom: 8 },
   modalDesc: { fontSize: 15, color: "#444", lineHeight: 22, marginBottom: 20 },
+
+  aiContainer: {
+    backgroundColor: "rgba(0,122,255,0.05)",
+    padding: 15,
+    borderRadius: 20,
+    marginBottom: 20,
+  },
+  aiButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 5,
+  },
+  aiButtonText: { fontSize: 14, fontWeight: "700", color: "#007AFF" },
+  resumenIAtext: {
+    fontSize: 13,
+    color: "#444",
+    fontStyle: "italic",
+    lineHeight: 18,
+  },
+  headerResenas: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 15,
+  },
+  aiHelper: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    backgroundColor: "#e8f2ff", // Azul muy claro para resaltar la IA
+    padding: 8,
+    borderRadius: 12,
+  },
+  aiHelperText: { fontSize: 12, fontWeight: "700" },
+
   routeBtn: {
     flexDirection: "row",
     backgroundColor: "#000",
@@ -476,7 +599,7 @@ const styles = StyleSheet.create({
   },
   routeBtnText: { color: "#FFF", fontWeight: "700", fontSize: 16 },
   divider: { height: 1, backgroundColor: "#E5E5EA", marginVertical: 25 },
-  sectionTitle: { fontSize: 18, fontWeight: "800", marginBottom: 15 },
+  sectionTitle: { fontSize: 18, fontWeight: "800" },
   starsRow: { flexDirection: "row", gap: 8, marginBottom: 20 },
   commentInputContainer: {
     flexDirection: "row",
@@ -488,7 +611,7 @@ const styles = StyleSheet.create({
     borderColor: "#E5E5EA",
     marginBottom: 25,
   },
-  commentInput: { flex: 1, marginRight: 10 },
+  commentInput: { flex: 1, marginRight: 10, minHeight: 40 },
   commentCard: {
     backgroundColor: "rgba(0,0,0,0.03)",
     padding: 16,
