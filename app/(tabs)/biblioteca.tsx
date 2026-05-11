@@ -1,4 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 import { BlurView } from "expo-blur";
 import * as ImagePicker from "expo-image-picker";
 import {
@@ -7,6 +8,7 @@ import {
     deleteDoc,
     doc,
     onSnapshot,
+    orderBy,
     query,
     serverTimestamp,
     updateDoc,
@@ -41,6 +43,10 @@ import { auth, db } from "../../firebaseConfig";
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const HEADER_HEIGHT = Platform.OS === "ios" ? 210 : 190;
 
+// Configuración de la IA
+const genAI = new GoogleGenerativeAI(process.env.EXPO_PUBLIC_GEMINI_API_KEY!);
+const modelIA = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+
 export default function BibliotecaTab() {
   const [misPuntos, setMisPuntos] = useState<any[]>([]);
   const [cargando, setCargando] = useState(false);
@@ -60,11 +66,16 @@ export default function BibliotecaTab() {
   const [editTags, setEditTags] = useState("");
   const [editFotos, setEditFotos] = useState<string[]>([]);
 
-  // Estados de comentarios (Para el nuevo modal)
+  // Estados de comentarios
   const [comentario, setComentario] = useState("");
   const [rating, setRating] = useState(5);
   const [listaComentarios, setListaComentarios] = useState<any[]>([]);
   const [enviandoComentario, setEnviandoComentario] = useState(false);
+
+  // Estados IA
+  const [mejorandoIA, setMejorandoIA] = useState(false);
+  const [resumenBiblioteca, setResumenBiblioteca] = useState("");
+  const [cargandoResumen, setCargandoResumen] = useState(false);
 
   const swipeRefs = useRef<Map<string, Swipeable>>(new Map());
 
@@ -79,16 +90,64 @@ export default function BibliotecaTab() {
     });
   }, []);
 
-  // Listener para comentarios del lugar seleccionado
   useEffect(() => {
     if (!lugarSeleccionado) return;
     const q = query(
       collection(db, "ubicaciones", lugarSeleccionado.idDoc, "comentarios"),
+      orderBy("fecha", "desc"),
     );
     return onSnapshot(q, (snap) => {
       setListaComentarios(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
     });
   }, [lugarSeleccionado]);
+
+  const generarResumenGeneral = async () => {
+    if (misPuntos.length === 0)
+      return Alert.alert("IA", "No tienes lugares guardados aún.");
+    setCargandoResumen(true);
+    try {
+      const titulos = misPuntos.map((p) => p.titulo).join(", ");
+      const prompt = `Analiza mis lugares guardados: "${titulos}". Haz un resumen muy breve y motivador (máximo 2 líneas) de mi perfil como explorador.`;
+      const result = await modelIA.generateContent(prompt);
+      setResumenBiblioteca(result.response.text());
+    } catch (e) {
+      console.log(e);
+    } finally {
+      setCargandoResumen(false);
+    }
+  };
+
+  const mejorarResenaIA = async () => {
+    setMejorandoIA(true);
+    try {
+      const prompt =
+        comentario.trim().length > 0
+          ? `Mejora y profesionaliza esta reseña para un lugar al que le di ${rating} estrellas: "${comentario}". Máximo 25 palabras.`
+          : `Genera una reseña breve y natural de una sola oración para un lugar al que califiqué con ${rating} de 5 estrellas.`;
+      const result = await modelIA.generateContent(prompt);
+      setComentario(result.response.text().trim().replace(/"/g, ""));
+    } catch (e) {
+      console.log(e);
+    } finally {
+      setMejorandoIA(false);
+    }
+  };
+
+  const asistenteEdicionIA = async () => {
+    if (!editTitulo) return Alert.alert("IA", "Ingresa un título primero.");
+    setMejorandoIA(true);
+    try {
+      const prompt = `Sugiere una descripción aventurera de 2 frases y 3 hashtags para un lugar llamado "${editTitulo}". Formato: Descripción | Hashtags`;
+      const result = await modelIA.generateContent(prompt);
+      const [descIA, tagsIA] = result.response.text().split("|");
+      if (descIA) setEditDesc(descIA.trim());
+      if (tagsIA) setEditTags(tagsIA.trim());
+    } catch (e) {
+      console.log(e);
+    } finally {
+      setMejorandoIA(false);
+    }
+  };
 
   const puntosFiltrados = useMemo(() => {
     let resultado = misPuntos.filter((p) => {
@@ -99,7 +158,6 @@ export default function BibliotecaTab() {
         sortBy === "favoritos" ? p.destacado === true : true;
       return cumpleBuscador && cumpleChipFavoritos;
     });
-
     if (sortBy === "nombre")
       return resultado.sort((a, b) => a.titulo.localeCompare(b.titulo));
     if (sortBy === "zona")
@@ -112,12 +170,10 @@ export default function BibliotecaTab() {
   }, [misPuntos, searchQuery, sortBy]);
 
   const trazarRuta = (item: any) => {
-    if (!item?.lat || !item?.lng)
-      return Alert.alert("Error", "Coordenadas no válidas");
     const label = encodeURIComponent(item.titulo);
     const url = Platform.select({
       ios: `maps:0,0?q=${label}@${item.lat},${item.lng}`,
-      android: `geo:0,0?q=${item.lat},${item.lng}(${label})`,
+      android: `geo:${item.lat},${item.lng}?q=${item.lat},${item.lng}(${label})`,
     });
     if (url) Linking.openURL(url);
   };
@@ -129,12 +185,17 @@ export default function BibliotecaTab() {
   };
 
   const seleccionarImagenEdicion = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== "granted")
+      return Alert.alert("Permisos", "Se requiere acceso a la galería.");
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
       quality: 0.5,
     });
-    if (!result.canceled) setEditFotos([...editFotos, result.assets[0].uri]);
+    if (!result.canceled && result.assets) {
+      setEditFotos([...editFotos, result.assets[0].uri]);
+    }
   };
 
   const guardarCambios = async () => {
@@ -161,9 +222,8 @@ export default function BibliotecaTab() {
         fotos: fotosFinales,
       });
       setModalVisible(false);
-      Alert.alert("Éxito", "Lugar actualizado.");
     } catch (e) {
-      Alert.alert("Error", "No se pudo guardar.");
+      console.log(e);
     } finally {
       setCargando(false);
     }
@@ -184,7 +244,7 @@ export default function BibliotecaTab() {
       );
       setComentario("");
     } catch (e) {
-      Alert.alert("Error", "No se pudo enviar el comentario");
+      console.log(e);
     } finally {
       setEnviandoComentario(false);
     }
@@ -230,7 +290,7 @@ export default function BibliotecaTab() {
           keyExtractor={(item) => item.idDoc}
           contentContainerStyle={[
             styles.listContent,
-            { paddingTop: HEADER_HEIGHT + 10 },
+            { paddingTop: HEADER_HEIGHT },
           ]}
           showsVerticalScrollIndicator={false}
           renderItem={({ item }) => (
@@ -314,20 +374,44 @@ export default function BibliotecaTab() {
 
         <BlurView intensity={90} tint="light" style={styles.headerGlass}>
           <View style={styles.headerContent}>
-            <View style={styles.searchContainer}>
-              <Ionicons
-                name="search"
-                size={18}
-                color="#8E8E93"
-                style={{ marginRight: 8 }}
-              />
-              <TextInput
-                placeholder="Buscar en mis guardados..."
-                style={styles.searchInput}
-                value={searchQuery}
-                onChangeText={setSearchQuery}
-                placeholderTextColor="#8E8E93"
-              />
+            {resumenBiblioteca ? (
+              <View style={styles.aiResumenBox}>
+                <Text style={styles.aiResumenText} numberOfLines={2}>
+                  {resumenBiblioteca}
+                </Text>
+                <TouchableOpacity onPress={() => setResumenBiblioteca("")}>
+                  <Ionicons name="close-circle" size={16} color="#8E8E93" />
+                </TouchableOpacity>
+              </View>
+            ) : null}
+
+            {/* 💡 RENGLÓN UNIFICADO: BUSCADOR Y BOTÓN IA A LA DERECHA */}
+            <View style={styles.searchRow}>
+              <View style={styles.searchContainer}>
+                <Ionicons
+                  name="search"
+                  size={18}
+                  color="#8E8E93"
+                  style={{ marginRight: 8 }}
+                />
+                <TextInput
+                  placeholder="Buscar en mis guardados..."
+                  style={styles.searchInput}
+                  value={searchQuery}
+                  onChangeText={setSearchQuery}
+                  placeholderTextColor="#8E8E93"
+                />
+              </View>
+              <TouchableOpacity
+                onPress={generarResumenGeneral}
+                style={styles.aiCircle}
+              >
+                {cargandoResumen ? (
+                  <ActivityIndicator size="small" color="#007AFF" />
+                ) : (
+                  <Ionicons name="sparkles" size={20} color="#007AFF" />
+                )}
+              </TouchableOpacity>
             </View>
 
             <ScrollView
@@ -355,7 +439,6 @@ export default function BibliotecaTab() {
           </View>
         </BlurView>
 
-        {/* MODAL DETALLE (ESTILO PREMIUM IMAGE CABECERA) */}
         <Modal visible={detalleVisible} animationType="slide" transparent>
           <View style={styles.modalOverlayFull}>
             <TouchableOpacity
@@ -364,10 +447,8 @@ export default function BibliotecaTab() {
             >
               <Ionicons name="close" size={24} color="#000" />
             </TouchableOpacity>
-
             {lugarSeleccionado && (
               <ScrollView showsVerticalScrollIndicator={false} bounces={true}>
-                {/* Carrusel de Imagenes Superior */}
                 <ScrollView
                   horizontal
                   pagingEnabled
@@ -381,17 +462,13 @@ export default function BibliotecaTab() {
                     />
                   ))}
                 </ScrollView>
-
-                {/* Hoja de Detalles (Sheet) */}
                 <View style={styles.detailSheetContainer}>
                   <Text style={styles.sheetTitle}>
                     {lugarSeleccionado.titulo}
                   </Text>
                   <Text style={styles.sheetDescription}>
-                    {lugarSeleccionado.descripcion ||
-                      "Este lugar no tiene una descripción detallada todavía."}
+                    {lugarSeleccionado.descripcion || "Sin descripción."}
                   </Text>
-
                   <TouchableOpacity
                     style={styles.btnTrazarRuta}
                     onPress={() => trazarRuta(lugarSeleccionado)}
@@ -399,14 +476,26 @@ export default function BibliotecaTab() {
                     <Ionicons name="paper-plane" size={20} color="#FFF" />
                     <Text style={styles.btnTextWhite}>Trazar Ruta</Text>
                   </TouchableOpacity>
-
                   <View style={styles.sheetDivider} />
-
-                  <Text style={styles.sheetSectionTitle}>
-                    Reseñas ({listaComentarios.length})
-                  </Text>
-
-                  {/* Estrellas Interactivas */}
+                  <View style={styles.rowBetween}>
+                    <Text style={styles.sheetSectionTitle}>
+                      Reseñas ({listaComentarios.length})
+                    </Text>
+                    <TouchableOpacity
+                      onPress={mejorarResenaIA}
+                      disabled={mejorandoIA}
+                      style={styles.aiBadgeBtn}
+                    >
+                      {mejorandoIA ? (
+                        <ActivityIndicator size="small" color="#007AFF" />
+                      ) : (
+                        <Ionicons name="sparkles" size={12} color="#007AFF" />
+                      )}
+                      <Text style={styles.aiBadgeText}>
+                        {comentario.trim() ? "Mejorar con IA" : "Sugerir IA"}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
                   <View style={styles.starsRowInteractive}>
                     {[1, 2, 3, 4, 5].map((s) => (
                       <TouchableOpacity key={s} onPress={() => setRating(s)}>
@@ -418,11 +507,9 @@ export default function BibliotecaTab() {
                       </TouchableOpacity>
                     ))}
                   </View>
-
-                  {/* Input de Comentario Estilo Imagen */}
                   <View style={styles.commentInputWrapper}>
                     <TextInput
-                      placeholder="Añade un comentario..."
+                      placeholder="Añade una nota personal..."
                       style={styles.inputComment}
                       value={comentario}
                       onChangeText={setComentario}
@@ -435,8 +522,6 @@ export default function BibliotecaTab() {
                       )}
                     </TouchableOpacity>
                   </View>
-
-                  {/* Lista de Comentarios */}
                   {listaComentarios.map((c) => (
                     <View key={c.id} style={styles.commentCardSmall}>
                       <View style={styles.commentHeaderRow}>
@@ -453,8 +538,6 @@ export default function BibliotecaTab() {
                       <Text style={styles.commentBodyText}>{c.texto}</Text>
                     </View>
                   ))}
-
-                  {/* Padding inferior para Scroll */}
                   <View style={{ height: 100 }} />
                 </View>
               </ScrollView>
@@ -462,7 +545,6 @@ export default function BibliotecaTab() {
           </View>
         </Modal>
 
-        {/* MODAL EDICIÓN PREMIUM (Mantenido igual) */}
         <Modal visible={modalVisible} animationType="slide" transparent>
           <KeyboardAvoidingView
             behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -478,10 +560,15 @@ export default function BibliotecaTab() {
                 <View style={styles.modalHeader}>
                   <Text style={styles.modalTitleText}>Editar Detalles</Text>
                   <TouchableOpacity
-                    onPress={() => setModalVisible(false)}
-                    style={styles.closeCircle}
+                    onPress={asistenteEdicionIA}
+                    style={styles.aiMagicBtn}
                   >
-                    <Ionicons name="close" size={20} color="#666" />
+                    {mejorandoIA ? (
+                      <ActivityIndicator size="small" color="#FFF" />
+                    ) : (
+                      <Ionicons name="sparkles" size={16} color="#FFF" />
+                    )}
+                    <Text style={styles.aiMagicText}>Auto-completar</Text>
                   </TouchableOpacity>
                 </View>
                 <ScrollView
@@ -582,22 +669,48 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 15,
   },
+  searchRow: { flexDirection: "row", alignItems: "center", gap: 10 }, // Fila unificada
+  aiCircle: {
+    backgroundColor: "#E1F0FF",
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  aiResumenBox: {
+    backgroundColor: "#E1F0FF",
+    padding: 12,
+    borderRadius: 15,
+    marginBottom: 15,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  aiResumenText: {
+    flex: 1,
+    fontSize: 12,
+    color: "#007AFF",
+    fontWeight: "600",
+    fontStyle: "italic",
+  },
   searchContainer: {
+    flex: 1,
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "rgba(0,0,0,0.05)",
-    borderRadius: 20,
+    borderRadius: 12,
     paddingHorizontal: 12,
     height: 45,
   },
-  searchInput: { flex: 1, fontSize: 14, fontWeight: "500", color: "#000" },
+  searchInput: { flex: 1, fontSize: 14 },
   filterBar: { marginTop: 20, flexDirection: "row" },
   chip: {
-    paddingHorizontal: 15,
+    paddingHorizontal: 16,
     paddingVertical: 8,
     marginRight: 10,
-    borderRadius: 15,
-    backgroundColor: "rgba(255,255,255,0.5)",
+    borderRadius: 20,
+    backgroundColor: "rgba(255,255,255,0.8)",
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: "rgba(0,0,0,0.1)",
   },
@@ -645,8 +758,11 @@ const styles = StyleSheet.create({
   },
   metaTextSmall: { fontSize: 10, color: "#8E8E93", fontWeight: "600" },
   row: { flexDirection: "row", alignItems: "center", gap: 3 },
-
-  // --- NUEVOS ESTILOS MODAL DETALLES (ESTILO IMAGEN) ---
+  rowBetween: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
   modalOverlayFull: { flex: 1, backgroundColor: "#FFF" },
   heroImage: { width: SCREEN_WIDTH, height: 450, resizeMode: "cover" },
   closeFloatTransparent: {
@@ -692,13 +808,18 @@ const styles = StyleSheet.create({
   },
   btnTextWhite: { color: "#FFF", fontWeight: "800", fontSize: 17 },
   sheetDivider: { height: 1, backgroundColor: "#F2F2F7", marginVertical: 15 },
-  sheetSectionTitle: {
-    fontSize: 20,
-    fontWeight: "800",
-    color: "#000",
-    marginBottom: 10,
+  sheetSectionTitle: { fontSize: 20, fontWeight: "800", color: "#000" },
+  aiBadgeBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: "#E1F0FF",
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 10,
   },
-  starsRowInteractive: { flexDirection: "row", gap: 8, marginBottom: 20 },
+  aiBadgeText: { fontSize: 11, fontWeight: "700", color: "#007AFF" },
+  starsRowInteractive: { flexDirection: "row", gap: 8, marginVertical: 20 },
   commentInputWrapper: {
     flexDirection: "row",
     alignItems: "center",
@@ -723,8 +844,6 @@ const styles = StyleSheet.create({
   commentUserText: { fontWeight: "700", fontSize: 14 },
   commentRatingText: { fontSize: 12, fontWeight: "600", color: "#666" },
   commentBodyText: { fontSize: 14, color: "#444" },
-
-  // ACCIONES SWIPE
   swipeActions: { flexDirection: "row", width: 150, marginBottom: 14 },
   swipeBtn: {
     flex: 1,
@@ -733,8 +852,6 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     marginLeft: 10,
   },
-
-  // MODAL EDICIÓN PREMIUM
   modalOverlayEdit: { flex: 1, justifyContent: "flex-end" },
   modalContent: {
     backgroundColor: "#FFF",
@@ -759,6 +876,16 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   modalTitleText: { fontSize: 24, fontWeight: "800", color: "#1C1C1E" },
+  aiMagicBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: "#007AFF",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
+  },
+  aiMagicText: { color: "#FFF", fontSize: 12, fontWeight: "700" },
   closeCircle: { backgroundColor: "#F2F2F7", padding: 8, borderRadius: 20 },
   sectionLabel: {
     fontSize: 13,
