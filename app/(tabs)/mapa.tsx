@@ -7,6 +7,7 @@ import * as Location from "expo-location";
 import {
   addDoc,
   collection,
+  doc,
   onSnapshot,
   orderBy,
   query,
@@ -45,19 +46,26 @@ export default function MapaTab() {
   const [hashtags, setHashtags] = useState("");
   const [esPublico, setEsPublico] = useState(false);
   const [imagenes, setImagenes] = useState<string[]>([]);
-  const [puntosGuardados, setPuntosGuardados] = useState<any[]>([]);
+
+  // Separación de estados para combinar puntos propios y de terceros
+  const [misUbicaciones, setMisUbicaciones] = useState<any[]>([]);
+  const [ubicacionesPublicas, setUbicacionesPublicas] = useState<any[]>([]);
+
   const [cargando, setCargando] = useState(false);
   const [generandoIA, setGenerandoIA] = useState(false);
   const [mostrarFormulario, setMostrarFormulario] = useState(false);
   const [puntoSeleccionado, setPuntoSeleccionado] = useState<any>(null);
 
-  // 💡 ESTADOS PARA DETALLES DE COMUNIDAD
+  // Guardará el perfil del usuario actual (para obtener el apodo)
+  const [miPerfil, setMiPerfil] = useState<any>(null);
+
+  // ESTADOS PARA DETALLES DE COMUNIDAD
   const [listaResenas, setListaResenas] = useState<any[]>([]);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const scrollRef = useRef<ScrollView>(null);
   const timerRef = useRef<any>(null);
 
-  // 💡 Lógica para calcular el promedio de estrellas
+  // Lógica para calcular el promedio de estrellas
   const promedioCalificacion = useMemo(() => {
     if (listaResenas.length === 0) return "Nuevo";
     const suma = listaResenas.reduce(
@@ -66,6 +74,20 @@ export default function MapaTab() {
     );
     return (suma / listaResenas.length).toFixed(1);
   }, [listaResenas]);
+
+  // Escucha el perfil del usuario para tener su apodo siempre a la mano
+  useEffect(() => {
+    if (!auth.currentUser) return;
+    const unsubProfile = onSnapshot(
+      doc(db, "users", auth.currentUser.uid),
+      (docSnap) => {
+        if (docSnap.exists()) {
+          setMiPerfil(docSnap.data());
+        }
+      },
+    );
+    return () => unsubProfile();
+  }, []);
 
   const actualizarGPS = async () => {
     let { status } = await Location.requestForegroundPermissionsAsync();
@@ -81,6 +103,7 @@ export default function MapaTab() {
     actualizarGPS();
   }, []);
 
+  // ESCUCHA 1: Mis Ubicaciones
   useEffect(() => {
     if (!auth.currentUser) return;
     const q = query(
@@ -88,13 +111,38 @@ export default function MapaTab() {
       where("userId", "==", auth.currentUser.uid),
     );
     return onSnapshot(q, (snapshot) => {
-      setPuntosGuardados(
+      setMisUbicaciones(
         snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })),
       );
     });
   }, []);
 
-  // 💡 ESCUCHA DE RESEÑAS EN TIEMPO REAL
+  // ESCUCHA 2: Ubicaciones Públicas (Comunidad)
+  useEffect(() => {
+    const q = query(
+      collection(db, "ubicaciones"),
+      where("esPublico", "==", true),
+    );
+    return onSnapshot(q, (snapshot) => {
+      setUbicacionesPublicas(
+        snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })),
+      );
+    });
+  }, []);
+
+  // Combinador de puntos para mostrar en el mapa sin duplicados
+  const puntosGuardados = useMemo(() => {
+    const map = new Map();
+    ubicacionesPublicas.forEach((p) => {
+      if (p.userId !== auth.currentUser?.uid) {
+        map.set(p.id, p);
+      }
+    });
+    misUbicaciones.forEach((p) => map.set(p.id, p));
+    return Array.from(map.values());
+  }, [misUbicaciones, ubicacionesPublicas]);
+
+  // ESCUCHA DE RESEÑAS EN TIEMPO REAL
   useEffect(() => {
     if (!puntoSeleccionado) return;
     const q = query(
@@ -106,7 +154,7 @@ export default function MapaTab() {
     });
   }, [puntoSeleccionado]);
 
-  // 💡 AUTO-CARRUSEL
+  // AUTO-CARRUSEL
   useEffect(() => {
     if (puntoSeleccionado?.fotos?.length > 1) {
       timerRef.current = setInterval(() => {
@@ -184,22 +232,33 @@ export default function MapaTab() {
     ]);
   };
 
+  // 💡 ACTUALIZADO: IA MÁS INTELIGENTE (Funciona con o sin imagen para ayudar al usuario)
   const autocompletarConIA = async () => {
-    if (imagenes.length === 0) return Alert.alert("Falta imagen");
     setGenerandoIA(true);
     try {
-      const base64 = await FileSystem.readAsStringAsync(imagenes[0], {
-        encoding: "base64",
-      });
       const genAI = new GoogleGenerativeAI(
         process.env.EXPO_PUBLIC_GEMINI_API_KEY!,
       );
       const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
-      const prompt = `Analiza la imagen y devuelve un JSON: {"titulo": "...", "descripcion": "...", "hashtags": "#tag1 #tag2"}`;
-      const result = await model.generateContent([
-        prompt,
-        { inlineData: { data: base64, mimeType: "image/jpeg" } },
-      ]);
+
+      let result;
+
+      // Si hay imagen, la analizamos
+      if (imagenes.length > 0) {
+        const base64 = await FileSystem.readAsStringAsync(imagenes[0], {
+          encoding: "base64",
+        });
+        const prompt = `Analiza la imagen y devuelve un JSON: {"titulo": "...", "descripcion": "...", "hashtags": "#tag1 #tag2"}`;
+        result = await model.generateContent([
+          prompt,
+          { inlineData: { data: base64, mimeType: "image/jpeg" } },
+        ]);
+      } else {
+        // Si no hay imagen, inventamos textos genéricos geniales
+        const prompt = `Genera un JSON con datos de relleno para un lugar increíble a explorar: {"titulo": "...", "descripcion": "...", "hashtags": "#tag1 #tag2"}`;
+        result = await model.generateContent(prompt);
+      }
+
       const data = JSON.parse(
         result.response
           .text()
@@ -207,18 +266,45 @@ export default function MapaTab() {
           .replace(/```/g, "")
           .trim(),
       );
-      if (data.titulo) setTitulo(data.titulo);
-      if (data.descripcion) setDescripcion(data.descripcion);
-      if (data.hashtags) setHashtags(data.hashtags);
+
+      // Solo sobreescribimos si el campo estaba vacío, para no borrar lo que el usuario ya escribió
+      if (!titulo && data.titulo) setTitulo(data.titulo);
+      if (!descripcion && data.descripcion) setDescripcion(data.descripcion);
+      if (!hashtags && data.hashtags) setHashtags(data.hashtags);
+
+      if (imagenes.length === 0) {
+        Alert.alert(
+          "Textos generados",
+          "La IA ha rellenado los textos, pero aún necesitas añadir una imagen antes de registrar la ubicación.",
+        );
+      }
     } catch (error: any) {
       console.log(error);
+      Alert.alert("Error IA", "Hubo un problema al generar los datos.");
     } finally {
       setGenerandoIA(false);
     }
   };
 
   const registrarLugar = async () => {
-    if (!titulo) return Alert.alert("Falta información");
+    // 💡 NUEVO: VALIDACIÓN ESTRICTA DE TODOS LOS CAMPOS
+    if (
+      !titulo.trim() ||
+      !descripcion.trim() ||
+      !hashtags.trim() ||
+      imagenes.length === 0
+    ) {
+      Alert.alert(
+        "Campos incompletos",
+        "Por favor rellene todos los campos (título, descripción, hashtags e imagen).",
+        [
+          { text: "Rellenar con IA", onPress: autocompletarConIA },
+          { text: "Seguir editando", style: "cancel" },
+        ],
+      );
+      return;
+    }
+
     setCargando(true);
     try {
       let urlsFinales: string[] = [];
@@ -233,9 +319,17 @@ export default function MapaTab() {
         const url = await getDownloadURL(storageRef);
         urlsFinales.push(url);
       }
+
+      const nombreUsuario =
+        miPerfil?.username ||
+        auth.currentUser?.displayName ||
+        (auth.currentUser?.email
+          ? auth.currentUser.email.split("@")[0]
+          : "Explorador");
+
       await addDoc(collection(db, "ubicaciones"), {
         userId: auth.currentUser?.uid,
-        usuario: auth.currentUser?.email,
+        usuario: nombreUsuario,
         titulo,
         descripcion,
         hashtags,
@@ -246,6 +340,7 @@ export default function MapaTab() {
         esPublico,
         fecha: serverTimestamp(),
       });
+
       setTitulo("");
       setDescripcion("");
       setHashtags("");
@@ -254,6 +349,7 @@ export default function MapaTab() {
       Alert.alert("Éxito", "Ubicación registrada.");
     } catch (error) {
       console.log(error);
+      Alert.alert("Error", "No se pudo registrar la ubicación.");
     } finally {
       setCargando(false);
     }
@@ -275,22 +371,31 @@ export default function MapaTab() {
           setPuntoSeleccionado(null);
         }}
       >
-        {puntosGuardados.map((p) => (
-          <Marker
-            key={p.id}
-            coordinate={{ latitude: p.lat, longitude: p.lng }}
-            pinColor={p.esPublico ? "#34C759" : "#FF3B30"}
-            onPress={(e) => {
-              e.stopPropagation();
-              setPuntoSeleccionado(p);
-              setMostrarFormulario(false);
-              setActiveImageIndex(0);
-            }}
-          />
-        ))}
+        {puntosGuardados.map((p) => {
+          const esMio = p.userId === auth.currentUser?.uid;
+          const colorPin = esMio
+            ? p.esPublico
+              ? "#34C759"
+              : "#FF3B30"
+            : "#007AFF";
+
+          return (
+            <Marker
+              key={p.id}
+              coordinate={{ latitude: p.lat, longitude: p.lng }}
+              pinColor={colorPin}
+              onPress={(e) => {
+                e.stopPropagation();
+                setPuntoSeleccionado(p);
+                setMostrarFormulario(false);
+                setActiveImageIndex(0);
+              }}
+            />
+          );
+        })}
       </MapView>
 
-      {/* 💡 TARJETA DE DETALLE MEJORADA */}
+      {/* TARJETA DE DETALLE MEJORADA CON OPACIDAD SÓLIDA */}
       {puntoSeleccionado && !mostrarFormulario && (
         <View style={styles.detailPosition}>
           <BlurView intensity={100} tint="light" style={styles.detailCard}>
@@ -345,7 +450,9 @@ export default function MapaTab() {
                   <Ionicons name="person-circle" size={16} color="#8E8E93" />
                   <Text style={styles.authorText}>
                     Por{" "}
-                    {puntoSeleccionado.usuario?.split("@")[0] || "Explorador"}
+                    {puntoSeleccionado.userId === auth.currentUser?.uid
+                      ? "Mí (Tú)"
+                      : puntoSeleccionado.usuario || "Explorador"}
                   </Text>
                 </View>
 
@@ -420,7 +527,7 @@ export default function MapaTab() {
         </View>
       )}
 
-      {/* 🔵 FORMULARIO (Mantenido) */}
+      {/* 🔵 FORMULARIO DE CREACIÓN */}
       {mostrarFormulario ? (
         <KeyboardAvoidingView
           behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -482,22 +589,22 @@ export default function MapaTab() {
                 ))}
               </ScrollView>
               <View style={styles.inputsWrapper}>
-                {imagenes.length > 0 && (
-                  <TouchableOpacity
-                    style={styles.aiButton}
-                    onPress={autocompletarConIA}
-                    disabled={generandoIA}
-                  >
-                    {generandoIA ? (
-                      <ActivityIndicator size="small" color="#FFF" />
-                    ) : (
-                      <Ionicons name="sparkles" size={16} color="#FFF" />
-                    )}
-                    <Text style={styles.aiButtonText}>
-                      {generandoIA ? "Analizando..." : "Autocompletar con IA"}
-                    </Text>
-                  </TouchableOpacity>
-                )}
+                {/* 💡 BOTÓN IA AHORA SIEMPRE VISIBLE */}
+                <TouchableOpacity
+                  style={styles.aiButton}
+                  onPress={autocompletarConIA}
+                  disabled={generandoIA}
+                >
+                  {generandoIA ? (
+                    <ActivityIndicator size="small" color="#FFF" />
+                  ) : (
+                    <Ionicons name="sparkles" size={16} color="#FFF" />
+                  )}
+                  <Text style={styles.aiButtonText}>
+                    {generandoIA ? "Analizando..." : "Autocompletar con IA"}
+                  </Text>
+                </TouchableOpacity>
+
                 <TextInput
                   placeholder="Nombre del lugar"
                   style={styles.textInputApple}
@@ -520,7 +627,18 @@ export default function MapaTab() {
                   placeholder="#etiquetas"
                   style={styles.textInputApple}
                   value={hashtags}
-                  onChangeText={setHashtags}
+                  onChangeText={(texto) => {
+                    const formateado = texto
+                      .split(" ")
+                      .map((word) => {
+                        if (word.length > 0 && !word.startsWith("#")) {
+                          return "#" + word;
+                        }
+                        return word;
+                      })
+                      .join(" ");
+                    setHashtags(formateado);
+                  }}
                   placeholderTextColor="#8E8E93"
                 />
               </View>
@@ -587,7 +705,6 @@ const styles = StyleSheet.create({
     borderRadius: 38,
   },
 
-  // Estilos Detalle Expandible
   detailPosition: {
     position: "absolute",
     bottom: 110,
@@ -602,6 +719,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 20,
     elevation: 10,
+    backgroundColor: "#FFFFFF",
   },
   heroContainer: { width: "100%", height: 260, position: "relative" },
   heroImage: { width: CARD_WIDTH, height: 260, resizeMode: "cover" },
@@ -704,7 +822,6 @@ const styles = StyleSheet.create({
     backgroundColor: "#f0f0f0",
   },
 
-  // Estilos Formulario Originales
   fabContainer: {
     position: "absolute",
     bottom: 120,

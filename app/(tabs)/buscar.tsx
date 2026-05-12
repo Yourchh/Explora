@@ -3,38 +3,43 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import { BlurView } from "expo-blur";
 import * as Location from "expo-location";
 import {
-    addDoc,
-    collection,
-    getDocs,
-    onSnapshot,
-    orderBy,
-    query,
-    serverTimestamp,
-    where,
+  addDoc,
+  collection,
+  doc,
+  documentId,
+  getDocs,
+  onSnapshot,
+  orderBy,
+  query,
+  serverTimestamp,
+  where,
 } from "firebase/firestore";
 import React, { useEffect, useMemo, useState } from "react";
 import {
-    ActivityIndicator,
-    Alert,
-    FlatList,
-    Image,
-    KeyboardAvoidingView,
-    Linking,
-    Modal,
-    Platform,
-    RefreshControl,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  Dimensions,
+  FlatList,
+  Image,
+  KeyboardAvoidingView,
+  Linking,
+  Modal,
+  Platform,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { auth, db } from "../../firebaseConfig";
 
+const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const HEADER_HEIGHT = Platform.OS === "ios" ? 200 : 180;
 
 const genAI = new GoogleGenerativeAI(process.env.EXPO_PUBLIC_GEMINI_API_KEY!);
+
 const modelIA = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
 export default function BuscarTab() {
@@ -45,16 +50,58 @@ export default function BuscarTab() {
   const [miUbicacion, setMiUbicacion] = useState<any>(null);
   const [lugarSeleccionado, setLugarSeleccionado] = useState<any>(null);
 
+  const [miPerfil, setMiPerfil] = useState<any>(null);
+  const [amigosList, setAmigosList] = useState<any[]>([]);
+
   // Estados de comentarios
   const [comentario, setComentario] = useState("");
   const [rating, setRating] = useState(5);
   const [listaComentarios, setListaComentarios] = useState<any[]>([]);
   const [enviandoComentario, setEnviandoComentario] = useState(false);
 
+  // Estados Compartir al Chat
+  const [modalSendToChat, setModalSendToChat] = useState(false);
+
   // Estados de IA
   const [resumenIA, setResumenIA] = useState("");
   const [generandoResumen, setGenerandoResumen] = useState(false);
   const [mejorandoResena, setMejorandoResena] = useState(false);
+
+  // OBTENER PERFIL Y AMIGOS
+  useEffect(() => {
+    if (!auth.currentUser) return;
+    const unsubProfile = onSnapshot(
+      doc(db, "users", auth.currentUser.uid),
+      (docSnap) => {
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          setMiPerfil(data);
+
+          if (data.friends && data.friends.length > 0) {
+            cargarAmigos(data.friends);
+          } else {
+            setAmigosList([]);
+          }
+        }
+      },
+    );
+    return () => unsubProfile();
+  }, []);
+
+  const cargarAmigos = async (friendsUids: string[]) => {
+    if (friendsUids.length === 0) return;
+    try {
+      const uidsSeguros = friendsUids.slice(0, 10);
+      const q = query(
+        collection(db, "users"),
+        where(documentId(), "in", uidsSeguros),
+      );
+      const snap = await getDocs(q);
+      setAmigosList(snap.docs.map((d) => ({ uid: d.id, ...d.data() })));
+    } catch (e) {
+      console.log("Error al cargar amigos:", e);
+    }
+  };
 
   useEffect(() => {
     actualizarGPS();
@@ -89,7 +136,38 @@ export default function BuscarTab() {
     }
   };
 
-  // 💡 IA: Generar resumen de todos los comentarios
+  // 💡 COMPARTIR LUGAR AL CHAT
+  const reenviarAlChat = async (amigo: any) => {
+    if (!lugarSeleccionado || !auth.currentUser) return;
+    setModalSendToChat(false);
+
+    const chatId = [auth.currentUser.uid, amigo.uid].sort().join("_");
+    const titulo = lugarSeleccionado.titulo || lugarSeleccionado.nombre;
+    const linkTexto = `📍 ¡Mira este lugar increíble: ${titulo}!\n${lugarSeleccionado.descripcion || ""}`;
+
+    try {
+      await addDoc(collection(db, "chats", chatId, "messages"), {
+        text: linkTexto,
+        senderId: auth.currentUser.uid,
+        timestamp: serverTimestamp(),
+        isLocationShare: true,
+        // 💡 CLAVE: Pasamos todo el objeto del lugar para que el Chat lo pueda dibujar
+        lugarDetails: lugarSeleccionado,
+        lat: lugarSeleccionado.lat || null,
+        lng: lugarSeleccionado.lng || null,
+        locationTitle: titulo || null,
+      });
+
+      Alert.alert(
+        "¡Enviado!",
+        `La ubicación fue compartida con ${amigo.username || "tu amigo"}.`,
+      );
+    } catch (e) {
+      console.log("Error al enviar ubicación al chat:", e);
+      Alert.alert("Error", "No se pudo compartir la ubicación.");
+    }
+  };
+
   const generarResumenComentarios = async () => {
     if (listaComentarios.length === 0) return;
     setGenerandoResumen(true);
@@ -105,25 +183,19 @@ export default function BuscarTab() {
     }
   };
 
-  // 💡 IA: MEJORAR LA RESEÑA (Lógica corregida)
   const mejorarResenaIA = async () => {
     setMejorandoResena(true);
     try {
       let prompt = "";
-      // Si el usuario ya escribió algo, el prompt pide mejorar el texto existente
       if (comentario.trim().length > 0) {
-        prompt = `Actúa como un editor experto. Mejora, profesionaliza y haz más atractiva la siguiente reseña para un lugar al que califiqué con ${rating} estrellas, manteniendo mi idea original pero con mejor redacción: "${comentario}". Devuelve solo el texto mejorado sin comillas.`;
+        prompt = `Actúa como un editor experto. Mejora la siguiente reseña para un lugar de ${rating} estrellas: "${comentario}". Devuelve solo el texto sin comillas.`;
       } else {
-        // Si el campo está vacío, sugiere una reseña desde cero basada en el rating
-        prompt = `Genera una reseña breve, natural y entusiasta de una sola oración para un lugar al que califiqué con ${rating} de 5 estrellas. Devuelve solo el texto sin comillas.`;
+        prompt = `Genera una reseña breve de una oración para un lugar de ${rating} estrellas. Devuelve solo el texto sin comillas.`;
       }
-
       const result = await modelIA.generateContent(prompt);
-      const textoFinal = result.response.text().trim().replace(/"/g, "");
-      setComentario(textoFinal);
+      setComentario(result.response.text().trim().replace(/"/g, ""));
     } catch (error) {
       console.log("Error IA Mejorar:", error);
-      Alert.alert("Error", "No se pudo mejorar la reseña en este momento.");
     } finally {
       setMejorandoResena(false);
     }
@@ -135,15 +207,10 @@ export default function BuscarTab() {
       const cumpleBusqueda =
         searchLower === "" ||
         item.titulo?.toLowerCase().includes(searchLower) ||
-        item.hashtags?.toLowerCase().includes(searchLower) ||
-        item.clasificacion?.toLowerCase().includes(searchLower);
+        item.hashtags?.toLowerCase().includes(searchLower);
       if (filtroActivo === "Todo") return cumpleBusqueda;
       const tagLimpio = filtroActivo.replace("# ", "").toLowerCase();
-      return (
-        cumpleBusqueda &&
-        (item.hashtags?.toLowerCase().includes(tagLimpio) ||
-          item.clasificacion?.toLowerCase().includes(tagLimpio))
-      );
+      return cumpleBusqueda && item.hashtags?.toLowerCase().includes(tagLimpio);
     });
   }, [search, filtroActivo, lugares]);
 
@@ -197,11 +264,9 @@ export default function BuscarTab() {
         }
         renderItem={({ item }) => {
           const autor =
-            item.usuario === auth.currentUser?.email
+            item.userId === auth.currentUser?.uid
               ? "Mí (Tú)"
-              : item.usuario
-                ? item.usuario.split("@")[0]
-                : "Explorador";
+              : item.usuario || "Explorador";
           return (
             <TouchableOpacity
               style={styles.card}
@@ -246,7 +311,7 @@ export default function BuscarTab() {
                 style={{ marginRight: 8 }}
               />
               <TextInput
-                placeholder="Buscar por nombre, zona..."
+                placeholder="Buscar por nombre, etiquetas..."
                 style={styles.searchInput}
                 value={search}
                 onChangeText={setSearch}
@@ -287,25 +352,119 @@ export default function BuscarTab() {
           <BlurView intensity={100} tint="light" style={styles.modalContent}>
             <TouchableOpacity
               style={styles.closeBtn}
-              onPress={() => setLugarSeleccionado(null)}
+              onPress={() => {
+                setLugarSeleccionado(null);
+                setModalSendToChat(false); // Reinicia el overlay de chat por seguridad
+              }}
             >
               <Ionicons name="close-circle" size={34} color="#000" />
             </TouchableOpacity>
+
             {lugarSeleccionado && (
-              <ScrollView showsVerticalScrollIndicator={false}>
-                <Image
-                  source={{ uri: lugarSeleccionado.fotos?.[0] }}
-                  style={styles.modalImg}
-                />
+              <ScrollView showsVerticalScrollIndicator={false} bounces={false}>
+                {lugarSeleccionado.fotos &&
+                lugarSeleccionado.fotos.length > 0 ? (
+                  <View>
+                    <ScrollView
+                      horizontal
+                      pagingEnabled
+                      showsHorizontalScrollIndicator={false}
+                    >
+                      {lugarSeleccionado.fotos.map(
+                        (foto: string, index: number) => (
+                          <Image
+                            key={index}
+                            source={{ uri: foto }}
+                            style={{
+                              width: SCREEN_WIDTH,
+                              height: 350,
+                              resizeMode: "cover",
+                            }}
+                          />
+                        ),
+                      )}
+                    </ScrollView>
+                    {lugarSeleccionado.fotos.length > 1 && (
+                      <View style={styles.carouselBadge}>
+                        <Text style={styles.carouselBadgeText}>
+                          Desliza ({lugarSeleccionado.fotos.length} fotos)
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                ) : (
+                  <View
+                    style={[
+                      styles.modalImg,
+                      {
+                        backgroundColor: "#F1F3F5",
+                        justifyContent: "center",
+                        alignItems: "center",
+                      },
+                    ]}
+                  >
+                    <Ionicons name="image-outline" size={40} color="#CCC" />
+                  </View>
+                )}
+
                 <View style={styles.modalBody}>
                   <Text style={styles.modalTitle}>
                     {lugarSeleccionado.titulo}
                   </Text>
+
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      marginBottom: 15,
+                    }}
+                  >
+                    <Ionicons name="person-circle" size={18} color="#8E8E93" />
+                    <Text
+                      style={{
+                        fontSize: 14,
+                        color: "#8E8E93",
+                        marginLeft: 4,
+                        fontWeight: "600",
+                      }}
+                    >
+                      Registrado por:{" "}
+                      {lugarSeleccionado.userId === auth.currentUser?.uid
+                        ? "Mí (Tú)"
+                        : lugarSeleccionado.usuario || "Explorador"}
+                    </Text>
+                  </View>
+
                   <Text style={styles.modalDesc}>
                     {lugarSeleccionado.descripcion}
                   </Text>
 
-                  {/* 💡 SECCIÓN IA: RESUMEN DE COMENTARIOS */}
+                  <View style={styles.actionButtonsRow}>
+                    <TouchableOpacity
+                      style={styles.routeBtn}
+                      onPress={() =>
+                        Linking.openURL(
+                          Platform.OS === "ios"
+                            ? `maps:0,0?q=${lugarSeleccionado.titulo}@${lugarSeleccionado.lat},${lugarSeleccionado.lng}`
+                            : `geo:${lugarSeleccionado.lat},${lugarSeleccionado.lng}?q=${lugarSeleccionado.lat},${lugarSeleccionado.lng}(${lugarSeleccionado.titulo})`,
+                        )
+                      }
+                    >
+                      <Ionicons name="navigate" size={18} color="#FFF" />
+                      <Text style={styles.routeBtnText}>Ir</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={styles.sendToChatBtn}
+                      onPress={() => setModalSendToChat(true)}
+                    >
+                      <Ionicons name="paper-plane" size={18} color="#007AFF" />
+                      <Text style={styles.sendToChatBtnText}>
+                        Compartir a Amigo
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+
                   {listaComentarios.length > 0 && (
                     <View style={styles.aiContainer}>
                       <TouchableOpacity
@@ -328,28 +487,12 @@ export default function BuscarTab() {
                     </View>
                   )}
 
-                  <TouchableOpacity
-                    style={styles.routeBtn}
-                    onPress={() =>
-                      Linking.openURL(
-                        Platform.OS === "ios"
-                          ? `maps:0,0?q=${lugarSeleccionado.titulo}@${lugarSeleccionado.lat},${lugarSeleccionado.lng}`
-                          : `geo:${lugarSeleccionado.lat},${lugarSeleccionado.lng}?q=${lugarSeleccionado.lat},${lugarSeleccionado.lng}(${lugarSeleccionado.titulo})`,
-                      )
-                    }
-                  >
-                    <Ionicons name="navigate" size={20} color="#FFF" />
-                    <Text style={styles.routeBtnText}>Trazar Ruta</Text>
-                  </TouchableOpacity>
-
                   <View style={styles.divider} />
-
                   <View style={styles.headerResenas}>
                     <Text style={styles.sectionTitle}>
                       Reseñas ({listaComentarios.length})
                     </Text>
 
-                    {/* 💡 BOTÓN IA ACTUALIZADO: MEJORAR RESEÑA */}
                     <TouchableOpacity
                       style={styles.aiHelper}
                       onPress={mejorarResenaIA}
@@ -391,6 +534,14 @@ export default function BuscarTab() {
                       onPress={async () => {
                         if (!comentario.trim()) return;
                         setEnviandoComentario(true);
+
+                        const nombreUsuario =
+                          miPerfil?.username ||
+                          auth.currentUser?.displayName ||
+                          (auth.currentUser?.email
+                            ? auth.currentUser.email.split("@")[0]
+                            : "Explorador");
+
                         await addDoc(
                           collection(
                             db,
@@ -399,7 +550,7 @@ export default function BuscarTab() {
                             "comentarios",
                           ),
                           {
-                            usuario: auth.currentUser?.email || "Anónimo",
+                            usuario: nombreUsuario,
                             texto: comentario,
                             calificacion: rating,
                             fecha: serverTimestamp(),
@@ -419,9 +570,7 @@ export default function BuscarTab() {
                   {listaComentarios.map((c) => (
                     <View key={c.id} style={styles.commentCard}>
                       <View style={styles.commentHeader}>
-                        <Text style={styles.commentUser}>
-                          {c.usuario?.split("@")[0]}
-                        </Text>
+                        <Text style={styles.commentUser}>{c.usuario}</Text>
                         <View style={styles.commentStarRow}>
                           <Ionicons name="star" size={10} color="#FFCC00" />
                           <Text style={styles.commentRatingText}>
@@ -432,8 +581,75 @@ export default function BuscarTab() {
                       <Text style={styles.commentText}>{c.texto}</Text>
                     </View>
                   ))}
+                  <View style={{ height: 40 }} />
                 </View>
               </ScrollView>
+            )}
+
+            {/* 💡 OVERLAY: ENVIAR AL CHAT (Capa Superior Integrada) */}
+            {modalSendToChat && (
+              <View
+                style={[
+                  StyleSheet.absoluteFill,
+                  {
+                    backgroundColor: "rgba(0,0,0,0.6)",
+                    justifyContent: "center",
+                    padding: 20,
+                    zIndex: 1000,
+                  },
+                ]}
+              >
+                <View style={styles.sendChatCard}>
+                  <Text
+                    style={[
+                      styles.modalTitle,
+                      { textAlign: "center", marginBottom: 5 },
+                    ]}
+                  >
+                    Recomendar a un amigo
+                  </Text>
+                  {amigosList.length === 0 ? (
+                    <Text style={styles.emptyText}>
+                      Ve a la pestaña Comunidad y agrega amigos usando su Código
+                      de Amigo.
+                    </Text>
+                  ) : (
+                    <ScrollView style={{ maxHeight: 300, marginTop: 15 }}>
+                      {amigosList.map((amigo) => (
+                        <TouchableOpacity
+                          key={amigo.uid}
+                          style={styles.friendCardMini}
+                          onPress={() => reenviarAlChat(amigo)}
+                        >
+                          <Image
+                            source={{
+                              uri:
+                                amigo.foto || "https://via.placeholder.com/150",
+                            }}
+                            style={styles.friendAvatarMini}
+                          />
+                          <Text style={styles.friendNameMini}>
+                            {amigo.username}
+                          </Text>
+                          <View style={styles.sendIconMini}>
+                            <Ionicons
+                              name="paper-plane"
+                              size={16}
+                              color="#FFF"
+                            />
+                          </View>
+                        </TouchableOpacity>
+                      ))}
+                    </ScrollView>
+                  )}
+                  <TouchableOpacity
+                    style={styles.cancelBtnFull}
+                    onPress={() => setModalSendToChat(false)}
+                  >
+                    <Text style={styles.cancelBtnText}>Cerrar</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
             )}
           </BlurView>
         </KeyboardAvoidingView>
@@ -469,7 +685,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "rgba(0,0,0,0.05)",
-    borderRadius: 12,
+    borderRadius: 25,
     paddingHorizontal: 12,
     height: 45,
   },
@@ -547,17 +763,62 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 40,
     overflow: "hidden",
   },
-  closeBtn: { position: "absolute", right: 20, top: 20, zIndex: 10 },
-  modalImg: { width: "100%", height: 300 },
+  closeBtn: {
+    position: "absolute",
+    right: 20,
+    top: 20,
+    zIndex: 10,
+    backgroundColor: "rgba(255,255,255,0.7)",
+    borderRadius: 20,
+  },
+  modalImg: { width: "100%", height: 350 },
+  carouselBadge: {
+    position: "absolute",
+    bottom: 15,
+    alignSelf: "center",
+    backgroundColor: "rgba(0,0,0,0.6)",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 15,
+  },
+  carouselBadgeText: { color: "#FFF", fontSize: 12, fontWeight: "bold" },
   modalBody: { padding: 25 },
-  modalTitle: { fontSize: 26, fontWeight: "900", marginBottom: 8 },
+  modalTitle: { fontSize: 26, fontWeight: "900", marginBottom: 6 },
   modalDesc: { fontSize: 15, color: "#444", lineHeight: 22, marginBottom: 20 },
+
+  actionButtonsRow: {
+    flexDirection: "row",
+    gap: 12,
+    marginBottom: 20,
+  },
+  routeBtn: {
+    flex: 1,
+    flexDirection: "row",
+    backgroundColor: "#000",
+    padding: 16,
+    borderRadius: 18,
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 10,
+  },
+  routeBtnText: { color: "#FFF", fontWeight: "700", fontSize: 15 },
+  sendToChatBtn: {
+    flex: 1.5,
+    flexDirection: "row",
+    backgroundColor: "#E1F0FF",
+    padding: 16,
+    borderRadius: 18,
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 8,
+  },
+  sendToChatBtnText: { color: "#007AFF", fontWeight: "800", fontSize: 14 },
 
   aiContainer: {
     backgroundColor: "rgba(0,122,255,0.05)",
     padding: 15,
     borderRadius: 20,
-    marginBottom: 20,
+    marginBottom: 10,
   },
   aiButton: {
     flexDirection: "row",
@@ -582,23 +843,12 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 5,
-    backgroundColor: "#e8f2ff", // Azul muy claro para resaltar la IA
+    backgroundColor: "#e8f2ff",
     padding: 8,
     borderRadius: 12,
   },
   aiHelperText: { fontSize: 12, fontWeight: "700" },
-
-  routeBtn: {
-    flexDirection: "row",
-    backgroundColor: "#000",
-    padding: 16,
-    borderRadius: 18,
-    justifyContent: "center",
-    alignItems: "center",
-    gap: 10,
-  },
-  routeBtnText: { color: "#FFF", fontWeight: "700", fontSize: 16 },
-  divider: { height: 1, backgroundColor: "#E5E5EA", marginVertical: 25 },
+  divider: { height: 1, backgroundColor: "#E5E5EA", marginVertical: 20 },
   sectionTitle: { fontSize: 18, fontWeight: "800" },
   starsRow: { flexDirection: "row", gap: 8, marginBottom: 20 },
   commentInputContainer: {
@@ -627,4 +877,50 @@ const styles = StyleSheet.create({
   commentStarRow: { flexDirection: "row", alignItems: "center", gap: 3 },
   commentRatingText: { fontSize: 12, fontWeight: "700" },
   commentText: { fontSize: 14, color: "#333", lineHeight: 20 },
+  emptyText: {
+    color: "#8E8E93",
+    textAlign: "center",
+    marginTop: 10,
+    fontSize: 15,
+    paddingHorizontal: 20,
+  },
+
+  // Estilos del Modal Overlay
+  sendChatCard: { backgroundColor: "#FFF", borderRadius: 35, padding: 30 },
+  friendCardMini: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 15,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: "#E5E5EA",
+  },
+  friendAvatarMini: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    marginRight: 15,
+    backgroundColor: "#E5E5EA",
+  },
+  friendNameMini: {
+    flex: 1,
+    fontWeight: "800",
+    fontSize: 17,
+    color: "#1C1C1E",
+  },
+  sendIconMini: {
+    backgroundColor: "#007AFF",
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  cancelBtnFull: {
+    marginTop: 25,
+    padding: 18,
+    backgroundColor: "#F2F2F7",
+    borderRadius: 20,
+    alignItems: "center",
+  },
+  cancelBtnText: { fontWeight: "800", color: "#8E8E93", fontSize: 16 },
 });

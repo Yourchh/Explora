@@ -3,47 +3,48 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import { BlurView } from "expo-blur";
 import * as ImagePicker from "expo-image-picker";
 import {
-    addDoc,
-    collection,
-    deleteDoc,
-    doc,
-    onSnapshot,
-    orderBy,
-    query,
-    serverTimestamp,
-    updateDoc,
-    where,
+  addDoc,
+  collection,
+  deleteDoc,
+  doc,
+  documentId, // 💡 IMPORTADO para la consulta de amigos
+  getDocs,
+  onSnapshot,
+  orderBy,
+  query,
+  serverTimestamp,
+  updateDoc,
+  where,
 } from "firebase/firestore";
 import { getDownloadURL, getStorage, ref, uploadBytes } from "firebase/storage";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
-    ActivityIndicator,
-    Alert,
-    Dimensions,
-    FlatList,
-    Image,
-    KeyboardAvoidingView,
-    Linking,
-    Modal,
-    Platform,
-    ScrollView,
-    Share,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  Dimensions,
+  FlatList,
+  Image,
+  KeyboardAvoidingView,
+  Linking,
+  Modal,
+  Platform,
+  ScrollView,
+  Share,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import {
-    GestureHandlerRootView,
-    Swipeable,
+  GestureHandlerRootView,
+  Swipeable,
 } from "react-native-gesture-handler";
 import { auth, db } from "../../firebaseConfig";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const HEADER_HEIGHT = Platform.OS === "ios" ? 210 : 190;
 
-// Configuración de la IA
 const genAI = new GoogleGenerativeAI(process.env.EXPO_PUBLIC_GEMINI_API_KEY!);
 const modelIA = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
@@ -54,6 +55,10 @@ export default function BibliotecaTab() {
   const [sortBy, setSortBy] = useState<
     "favoritos" | "recientes" | "nombre" | "zona"
   >("recientes");
+
+  // 💡 NUEVO: Estados para compartir al chat
+  const [amigosList, setAmigosList] = useState<any[]>([]);
+  const [modalSendToChat, setModalSendToChat] = useState(false);
 
   // Modales
   const [modalVisible, setModalVisible] = useState(false);
@@ -79,6 +84,40 @@ export default function BibliotecaTab() {
 
   const swipeRefs = useRef<Map<string, Swipeable>>(new Map());
 
+  // 💡 NUEVO: Cargar lista de amigos
+  useEffect(() => {
+    if (!auth.currentUser) return;
+    const unsubProfile = onSnapshot(
+      doc(db, "users", auth.currentUser.uid),
+      (docSnap) => {
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          if (data.friends && data.friends.length > 0) {
+            cargarAmigos(data.friends);
+          } else {
+            setAmigosList([]);
+          }
+        }
+      },
+    );
+    return () => unsubProfile();
+  }, []);
+
+  const cargarAmigos = async (friendsUids: string[]) => {
+    if (!friendsUids || friendsUids.length === 0) return;
+    try {
+      const uidsSeguros = friendsUids.slice(0, 10);
+      const q = query(
+        collection(db, "users"),
+        where(documentId(), "in", uidsSeguros),
+      );
+      const snap = await getDocs(q);
+      setAmigosList(snap.docs.map((d) => ({ uid: d.id, ...d.data() })));
+    } catch (e) {
+      console.log("Error al cargar amigos:", e);
+    }
+  };
+
   useEffect(() => {
     if (!auth.currentUser) return;
     const q = query(
@@ -100,6 +139,35 @@ export default function BibliotecaTab() {
       setListaComentarios(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
     });
   }, [lugarSeleccionado]);
+
+  // 💡 NUEVO: Función para reenviar ubicación al chat de un amigo
+  const reenviarAlChat = async (amigo: any) => {
+    if (!lugarSeleccionado || !auth.currentUser) return;
+    setModalSendToChat(false);
+
+    const chatId = [auth.currentUser.uid, amigo.uid].sort().join("_");
+    const titulo = lugarSeleccionado.titulo || lugarSeleccionado.nombre;
+
+    try {
+      await addDoc(collection(db, "chats", chatId, "messages"), {
+        text: `📍 ¡Mira este lugar increíble: ${titulo}!`,
+        senderId: auth.currentUser.uid,
+        timestamp: serverTimestamp(),
+        isLocationShare: true,
+        lugarDetails: lugarSeleccionado,
+        lat: lugarSeleccionado.lat || null,
+        lng: lugarSeleccionado.lng || null,
+        locationTitle: titulo || null,
+      });
+      Alert.alert(
+        "¡Enviado!",
+        `Ubicación compartida con ${amigo.username || "tu amigo"}.`,
+      );
+    } catch (e) {
+      console.log("Error al enviar ubicación:", e);
+      Alert.alert("Error", "No se pudo compartir la ubicación.");
+    }
+  };
 
   const generarResumenGeneral = async () => {
     if (misPuntos.length === 0)
@@ -326,8 +394,16 @@ export default function BibliotecaTab() {
                           esPublico: !item.esPublico,
                         }),
                     },
+                    // 💡 NUEVO: Opción de enviar a amigo desde el menú rápido
                     {
-                      text: "📤 Compartir",
+                      text: "💬 Enviar a amigo",
+                      onPress: () => {
+                        setLugarSeleccionado(item);
+                        setModalSendToChat(true);
+                      },
+                    },
+                    {
+                      text: "📤 Compartir (Externo)",
                       onPress: () =>
                         Share.share({
                           message: `¡Mira este lugar: ${item.titulo}!`,
@@ -385,7 +461,6 @@ export default function BibliotecaTab() {
               </View>
             ) : null}
 
-            {/* 💡 RENGLÓN UNIFICADO: BUSCADOR Y BOTÓN IA A LA DERECHA */}
             <View style={styles.searchRow}>
               <View style={styles.searchContainer}>
                 <Ionicons
@@ -439,6 +514,7 @@ export default function BibliotecaTab() {
           </View>
         </BlurView>
 
+        {/* MODAL DETALLES DEL LUGAR */}
         <Modal visible={detalleVisible} animationType="slide" transparent>
           <View style={styles.modalOverlayFull}>
             <TouchableOpacity
@@ -469,13 +545,28 @@ export default function BibliotecaTab() {
                   <Text style={styles.sheetDescription}>
                     {lugarSeleccionado.descripcion || "Sin descripción."}
                   </Text>
-                  <TouchableOpacity
-                    style={styles.btnTrazarRuta}
-                    onPress={() => trazarRuta(lugarSeleccionado)}
-                  >
-                    <Ionicons name="paper-plane" size={20} color="#FFF" />
-                    <Text style={styles.btnTextWhite}>Trazar Ruta</Text>
-                  </TouchableOpacity>
+
+                  {/* 💡 AÑADIDO: Fila de Botones (Ir y Compartir) */}
+                  <View style={styles.actionButtonsRow}>
+                    <TouchableOpacity
+                      style={styles.routeBtn}
+                      onPress={() => trazarRuta(lugarSeleccionado)}
+                    >
+                      <Ionicons name="navigate" size={18} color="#FFF" />
+                      <Text style={styles.routeBtnText}>Ir</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={styles.sendToChatBtn}
+                      onPress={() => setModalSendToChat(true)}
+                    >
+                      <Ionicons name="paper-plane" size={18} color="#007AFF" />
+                      <Text style={styles.sendToChatBtnText}>
+                        Compartir a Amigo
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+
                   <View style={styles.sheetDivider} />
                   <View style={styles.rowBetween}>
                     <Text style={styles.sheetSectionTitle}>
@@ -542,9 +633,66 @@ export default function BibliotecaTab() {
                 </View>
               </ScrollView>
             )}
+
+            {/* 💡 OVERLAY: MODAL PARA ENVIAR A CHAT */}
+            {modalSendToChat && (
+              <View style={styles.modalBackdropCenter}>
+                <View style={styles.sendChatCard}>
+                  <Text
+                    style={[
+                      styles.sheetSectionTitle,
+                      { textAlign: "center", marginBottom: 5 },
+                    ]}
+                  >
+                    Recomendar a un amigo
+                  </Text>
+                  {amigosList.length === 0 ? (
+                    <Text style={styles.emptyText}>
+                      Aún no tienes amigos. Ve a Comunidad para agregar
+                      conexiones.
+                    </Text>
+                  ) : (
+                    <ScrollView style={{ maxHeight: 300, marginTop: 15 }}>
+                      {amigosList.map((amigo) => (
+                        <TouchableOpacity
+                          key={amigo.uid}
+                          style={styles.friendCardMini}
+                          onPress={() => reenviarAlChat(amigo)}
+                        >
+                          <Image
+                            source={{
+                              uri:
+                                amigo.foto || "https://via.placeholder.com/150",
+                            }}
+                            style={styles.friendAvatarMini}
+                          />
+                          <Text style={styles.friendNameMini}>
+                            {amigo.username}
+                          </Text>
+                          <View style={styles.sendIconMini}>
+                            <Ionicons
+                              name="paper-plane"
+                              size={16}
+                              color="#FFF"
+                            />
+                          </View>
+                        </TouchableOpacity>
+                      ))}
+                    </ScrollView>
+                  )}
+                  <TouchableOpacity
+                    style={styles.cancelBtnFull}
+                    onPress={() => setModalSendToChat(false)}
+                  >
+                    <Text style={styles.cancelBtnText}>Cerrar</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
           </View>
         </Modal>
 
+        {/* MODAL EDICIÓN */}
         <Modal visible={modalVisible} animationType="slide" transparent>
           <KeyboardAvoidingView
             behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -669,12 +817,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 15,
   },
-  searchRow: { flexDirection: "row", alignItems: "center", gap: 10 }, // Fila unificada
+  searchRow: { flexDirection: "row", alignItems: "center", gap: 10 },
   aiCircle: {
     backgroundColor: "#E1F0FF",
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 45,
+    height: 45,
+    borderRadius: 25,
     justifyContent: "center",
     alignItems: "center",
   },
@@ -699,7 +847,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "rgba(0,0,0,0.05)",
-    borderRadius: 12,
+    borderRadius: 25,
     paddingHorizontal: 12,
     height: 45,
   },
@@ -794,19 +942,38 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: "#666",
     lineHeight: 24,
-    marginBottom: 30,
+    marginBottom: 20,
   },
-  btnTrazarRuta: {
-    backgroundColor: "#000",
-    borderRadius: 20,
-    paddingVertical: 18,
+
+  // 💡 Nuevos estilos para botones de acción (Ir y Compartir)
+  actionButtonsRow: {
     flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
     gap: 12,
     marginBottom: 25,
   },
-  btnTextWhite: { color: "#FFF", fontWeight: "800", fontSize: 17 },
+  routeBtn: {
+    flex: 1,
+    flexDirection: "row",
+    backgroundColor: "#000",
+    padding: 16,
+    borderRadius: 18,
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 8,
+  },
+  routeBtnText: { color: "#FFF", fontWeight: "800", fontSize: 15 },
+  sendToChatBtn: {
+    flex: 1.5,
+    flexDirection: "row",
+    backgroundColor: "#E1F0FF",
+    padding: 16,
+    borderRadius: 18,
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 8,
+  },
+  sendToChatBtnText: { color: "#007AFF", fontWeight: "800", fontSize: 14 },
+
   sheetDivider: { height: 1, backgroundColor: "#F2F2F7", marginVertical: 15 },
   sheetSectionTitle: { fontSize: 20, fontWeight: "800", color: "#000" },
   aiBadgeBtn: {
@@ -970,4 +1137,60 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   saveBtnText: { color: "#FFF", fontWeight: "800", fontSize: 18 },
+
+  // Estilos del Modal Overlay para Chat
+  modalBackdropCenter: {
+    position: "absolute",
+    top: 0,
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    justifyContent: "center",
+    padding: 20,
+    zIndex: 1000,
+  },
+  sendChatCard: { backgroundColor: "#FFF", borderRadius: 35, padding: 30 },
+  emptyText: {
+    color: "#8E8E93",
+    textAlign: "center",
+    marginTop: 10,
+    fontSize: 15,
+  },
+  friendCardMini: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 15,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: "#E5E5EA",
+  },
+  friendAvatarMini: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    marginRight: 15,
+    backgroundColor: "#E5E5EA",
+  },
+  friendNameMini: {
+    flex: 1,
+    fontWeight: "800",
+    fontSize: 17,
+    color: "#1C1C1E",
+  },
+  sendIconMini: {
+    backgroundColor: "#007AFF",
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  cancelBtnFull: {
+    marginTop: 25,
+    padding: 18,
+    backgroundColor: "#F2F2F7",
+    borderRadius: 20,
+    alignItems: "center",
+  },
+  cancelBtnText: { fontWeight: "800", color: "#8E8E93", fontSize: 16 },
 });
