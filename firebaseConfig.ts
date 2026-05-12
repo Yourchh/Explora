@@ -4,18 +4,21 @@ import { initializeApp } from "firebase/app";
 import { getReactNativePersistence, initializeAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 
+// Configuración utilizando variables de entorno de Expo
 const firebaseConfig = {
-  apiKey: "AIzaSyC1lGT3oldujKRIIQkPmWbsY36HbTZxRKQ",
-  authDomain: "bitacora-geo.firebaseapp.com",
-  projectId: "bitacora-geo",
-  storageBucket: "bitacora-geo.firebasestorage.app",
-  messagingSenderId: "3108534207",
-  appId: "1:3108534207:web:436acd958367791909930a",
-  measurementId: "G-E8273LZYDK",
+  apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY,
+  authDomain: process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID,
+  measurementId: process.env.EXPO_PUBLIC_FIREBASE_MEASUREMENT_ID,
 };
 
+// Inicializar Firebase
 const app = initializeApp(firebaseConfig);
 
+// Inicializar Auth con persistencia en AsyncStorage para React Native
 export const auth = initializeAuth(app, {
   persistence: getReactNativePersistence(AsyncStorage),
 });
