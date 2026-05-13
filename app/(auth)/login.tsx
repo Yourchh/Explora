@@ -1,14 +1,9 @@
 import { Link } from "expo-router";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import React, { useState } from "react";
-import {
-    Alert,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
-} from "react-native";
+import { Alert, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { CustomInput } from "../../components/loginRegister/CustomInput";
+import { PrimaryButton } from "../../components/loginRegister/PrimaryButton";
 import { auth } from "../../firebaseConfig";
 
 export default function Login() {
@@ -18,7 +13,7 @@ export default function Login() {
   const handleLogin = async () => {
     try {
       await signInWithEmailAndPassword(auth, email, password);
-    } catch (error: any) {
+    } catch {
       Alert.alert("Error de acceso", "Verifica tus credenciales.");
     }
   };
@@ -26,22 +21,21 @@ export default function Login() {
   return (
     <View style={styles.container}>
       <Text style={styles.titulo}>Bienvenido</Text>
-      <TextInput
+
+      <CustomInput
         placeholder="Email"
-        style={styles.input}
         onChangeText={setEmail}
         autoCapitalize="none"
+        keyboardType="email-address"
       />
-      <TextInput
+
+      <CustomInput
         placeholder="Contraseña"
-        style={styles.input}
         secureTextEntry
         onChangeText={setPassword}
       />
 
-      <TouchableOpacity style={styles.boton} onPress={handleLogin}>
-        <Text style={styles.botonTexto}>Iniciar Sesión</Text>
-      </TouchableOpacity>
+      <PrimaryButton title="Iniciar Sesión" onPress={handleLogin} />
 
       <Link href="/registro" asChild>
         <TouchableOpacity style={styles.link}>
@@ -65,21 +59,12 @@ const styles = StyleSheet.create({
     marginBottom: 40,
     letterSpacing: -1,
   },
-  input: {
-    backgroundColor: "#F2F2F7",
-    padding: 18,
-    borderRadius: 12,
-    marginBottom: 15,
-    fontSize: 16,
-  },
-  boton: {
-    backgroundColor: "#000",
-    padding: 18,
-    borderRadius: 12,
+  link: {
+    marginTop: 20,
     alignItems: "center",
-    marginTop: 10,
   },
-  botonTexto: { color: "#fff", fontWeight: "600", fontSize: 16 },
-  link: { marginTop: 20, alignItems: "center" },
-  linkTexto: { color: "#8E8E93", fontSize: 14 },
+  linkTexto: {
+    color: "#8E8E93",
+    fontSize: 14,
+  },
 });

@@ -1,8 +1,16 @@
-import { Ionicons } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
 import { Tabs } from "expo-router";
 import React from "react";
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { StyleSheet, View } from "react-native";
+import { TabItem } from "../../components/TabItem";
+
+// Configuración centralizada de las pestañas
+const TAB_CONFIG: Record<string, { icon: string; label: string }> = {
+  mapa: { icon: "map", label: "Mapa" },
+  buscar: { icon: "search", label: "Explorar" },
+  biblioteca: { icon: "bookmark", label: "Guardados" },
+  comunidad: { icon: "people", label: "Social" },
+};
 
 function CustomTabBar({ state, descriptors, navigation }: any) {
   return (
@@ -12,57 +20,30 @@ function CustomTabBar({ state, descriptors, navigation }: any) {
         <View style={styles.tabBarContent}>
           {state.routes.map((route: any, index: number) => {
             const isFocused = state.index === index;
+            const config = TAB_CONFIG[route.name] || {
+              icon: "help",
+              label: "",
+            };
+
             const onPress = () => {
               const event = navigation.emit({
                 type: "tabPress",
                 target: route.key,
                 canPreventDefault: true,
               });
-              if (!isFocused && !event.defaultPrevented)
+              if (!isFocused && !event.defaultPrevented) {
                 navigation.navigate(route.name);
+              }
             };
 
-            let iconName: any = "help";
-            let label = "";
-            // 💡 Agregamos la lógica para el nuevo botón de búsqueda
-            if (route.name === "mapa") {
-              iconName = "map";
-              label = "Mapa";
-            } else if (route.name === "buscar") {
-              iconName = "search";
-              label = "Explorar";
-            } else if (route.name === "biblioteca") {
-              iconName = "bookmark";
-              label = "Guardados";
-            } else if (route.name === "comunidad") {
-              iconName = "people";
-              label = "Social";
-            }
-
             return (
-              <TouchableOpacity
+              <TabItem
                 key={route.key}
                 onPress={onPress}
-                style={styles.tabButton}
-              >
-                <View
-                  style={[styles.tabItem, isFocused && styles.tabItemActive]}
-                >
-                  <Ionicons
-                    name={isFocused ? iconName : `${iconName}-outline`}
-                    size={18}
-                    color={isFocused ? "#000" : "#8E8E93"}
-                  />
-                  <Text
-                    style={[
-                      styles.tabLabel,
-                      { color: isFocused ? "#000" : "#8E8E93" },
-                    ]}
-                  >
-                    {label}
-                  </Text>
-                </View>
-              </TouchableOpacity>
+                isFocused={isFocused}
+                iconName={config.icon}
+                label={config.label}
+              />
             );
           })}
         </View>
@@ -104,14 +85,4 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-evenly",
   },
-  tabButton: { flex: 1, alignItems: "center" },
-  tabItem: {
-    alignItems: "center",
-    justifyContent: "center",
-    height: 50,
-    width: 65,
-    borderRadius: 20,
-  },
-  tabItemActive: { backgroundColor: "rgba(0, 0, 0, 0.06)" },
-  tabLabel: { fontSize: 9, fontWeight: "700", marginTop: 2 },
 });

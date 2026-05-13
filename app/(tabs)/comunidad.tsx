@@ -62,15 +62,17 @@ export default function SocialTab() {
   const [grupos, setGrupos] = useState<any[]>([]);
   const [misLugares, setMisLugares] = useState<any[]>([]);
 
-  // --- ESTADOS PERFIL ---
   const [userData, setUserData] = useState({
     username: "",
     bio: "",
+    frase: "", // 💡 Asegúrate que esté aquí
     intereses: [] as string[],
     foto: "https://via.placeholder.com/150",
+    portada: "https://via.placeholder.com/800x400", // 💡 Asegúrate que esté aquí
     friendCode: "",
     friends: [] as string[],
   });
+
   const [guardandoPerfil, setGuardandoPerfil] = useState(false);
   const [nuevoInteres, setNuevoInteres] = useState("");
 
@@ -81,9 +83,7 @@ export default function SocialTab() {
   const [mensajes, setMensajes] = useState<any[]>([]);
   const [nuevoMensaje, setNuevoMensaje] = useState("");
   const [msgEditando, setMsgEditando] = useState<any>(null);
-  const [unreadChats, setUnreadChats] = useState<{ [key: string]: boolean }>(
-    {},
-  );
+  const [unreadChats, setUnreadChats] = useState<{ [key: string]: number }>({});
   const [detalleAmigo, setDetalleAmigo] = useState<any>(null);
 
   // --- ESTADOS GRUPOS Y CHAT GRUPAL ---
@@ -144,8 +144,10 @@ export default function SocialTab() {
         setUserData({
           username: data.username || "Explorador",
           bio: data.bio || "",
+          frase: data.frase || "", // 💡 Agregado para arreglar el error
           intereses: data.intereses || [],
           foto: data.foto || "https://via.placeholder.com/150",
+          portada: data.portada || "https://via.placeholder.com/800x400", // 💡 Agregado
           friendCode: data.friendCode || "",
           friends: data.friends || [],
         });
@@ -188,18 +190,42 @@ export default function SocialTab() {
       setAmigosList([]);
       return;
     }
-    try {
-      const uidsSeguros = friendsUids.slice(0, 10);
-      const q = query(
-        collection(db, "users"),
-        where(documentId(), "in", uidsSeguros),
-      );
-      const snap = await getDocs(q);
-      setAmigosList(snap.docs.map((d) => ({ uid: d.id, ...d.data() })));
-    } catch (e) {
-      console.log("Error cargando amigos:", e);
-    }
+
+    // 💡 Usamos onSnapshot para escuchar cambios en los perfiles de los amigos
+    const q = query(
+      collection(db, "users"),
+      where(documentId(), "in", friendsUids.slice(0, 10)),
+    );
+
+    const unsub = onSnapshot(q, (snap) => {
+      const lista = snap.docs.map((d) => ({ uid: d.id, ...d.data() }));
+      setAmigosList(lista);
+    });
+
+    return unsub; // Devuelve la función para limpiar el listener si fuera necesario
   };
+
+  useEffect(() => {
+    if (!auth.currentUser || amigosList.length === 0) return;
+
+    const unsubscribers = amigosList.map((amigo) => {
+      const chatId = [auth.currentUser!.uid, amigo.uid].sort().join("_");
+      const q = query(
+        collection(db, "chats", chatId, "messages"),
+        where("senderId", "==", amigo.uid), // Solo mensajes que recibo
+        where("read", "==", false), // Que no he leído
+      );
+
+      return onSnapshot(q, (snap) => {
+        setUnreadChats((prev) => ({
+          ...prev,
+          [amigo.uid]: snap.docs.length, // Guardamos el número de mensajes nuevos
+        }));
+      });
+    });
+
+    return () => unsubscribers.forEach((unsub) => unsub());
+  }, [amigosList]);
 
   useEffect(() => {
     const qPosts = query(
@@ -217,26 +243,35 @@ export default function SocialTab() {
     const unsubGrupos = onSnapshot(qGrupos, (snap) =>
       setGrupos(snap.docs.map((d) => ({ id: d.id, ...d.data() }))),
     );
+  }, []);
 
+  useEffect(() => {
     const cargarMisLugaresPublicos = async () => {
+      // 1. Verificamos que el usuario exista
       if (!auth.currentUser) return;
+
+      console.log("Cargando lugares públicos para:", auth.currentUser.uid);
+
       const q = query(
         collection(db, "ubicaciones"),
         where("userId", "==", auth.currentUser.uid),
         where("esPublico", "==", true),
       );
+
       try {
         const snap = await getDocs(q);
-        setMisLugares(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
-      } catch (e) {}
+        const lugares = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+        setMisLugares(lugares);
+      } catch (error) {
+        console.log("Error al obtener lugares:", error);
+      }
     };
 
-    cargarMisLugaresPublicos();
-    return () => {
-      unsubPosts();
-      unsubGrupos();
-    };
-  }, []);
+    // 2. Ejecutamos la función si el usuario está logueado Y el modal de compartir está abierto
+    if (auth.currentUser && modalShare) {
+      cargarMisLugaresPublicos();
+    }
+  }, [auth.currentUser, modalShare]); // 💡 Escuchamos estos dos cambios
 
   // Escucha mensajes de Chat Privado
   useEffect(() => {
@@ -278,6 +313,62 @@ export default function SocialTab() {
     });
     return () => unsub();
   }, [postSeleccionado]);
+
+  useEffect(() => {
+    if (!auth.currentUser || amigosList.length === 0) return;
+
+    // Creamos un escuchador por cada amigo
+    const unsubscribers = amigosList.map((amigo) => {
+      const chatId = [auth.currentUser!.uid, amigo.uid].sort().join("_");
+      const q = query(
+        collection(db, "chats", chatId, "messages"),
+        where("senderId", "==", amigo.uid), // Mensajes que él me envió
+        where("read", "==", false), // Que yo no he leído
+      );
+
+      return onSnapshot(q, (snap) => {
+        setUnreadChats((prev) => ({
+          ...prev,
+          [amigo.uid]: snap.docs.length, // Guardamos la cantidad numérica
+        }));
+      });
+    });
+
+    return () => unsubscribers.forEach((unsub) => unsub && unsub());
+  }, [amigosList]);
+
+  const [unreadGroups, setUnreadGroups] = useState<{ [key: string]: number }>(
+    {},
+  );
+
+  useEffect(() => {
+    if (!auth.currentUser || grupos.length === 0) return;
+
+    // Filtramos solo los grupos a los que perteneces
+    const misGrupos = grupos.filter((g) =>
+      g.miembrosList?.includes(auth.currentUser?.uid),
+    );
+
+    const unsubscribers = misGrupos.map((grupo) => {
+      const q = query(
+        collection(db, "social_groups", grupo.id, "messages"),
+        // 💡 Buscamos mensajes donde NO estemos en la lista de lectura
+        where("readBy", "not-in", [[auth.currentUser!.uid]]),
+      );
+
+      return onSnapshot(
+        collection(db, "social_groups", grupo.id, "messages"),
+        (snap) => {
+          const nuevos = snap.docs.filter(
+            (d) => !d.data().readBy?.includes(auth.currentUser?.uid),
+          );
+          setUnreadGroups((prev) => ({ ...prev, [grupo.id]: nuevos.length }));
+        },
+      );
+    });
+
+    return () => unsubscribers.forEach((unsub) => unsub());
+  }, [grupos]);
 
   // --- FUNCIONES IA ---
   const resumirPublicacionIA = async (post: any) => {
@@ -341,7 +432,7 @@ export default function SocialTab() {
         intereses: userData.intereses,
       });
       Alert.alert("Éxito", "Perfil actualizado correctamente.");
-    } catch (e) {
+    } catch {
       Alert.alert("Error", "No se pudo actualizar el perfil.");
     } finally {
       setGuardandoPerfil(false);
@@ -367,19 +458,58 @@ export default function SocialTab() {
         await uploadBytes(storageRef, blob);
         const url = await getDownloadURL(storageRef);
         await updateDoc(doc(db, "users", auth.currentUser.uid), { foto: url });
-      } catch (e) {
+      } catch {
       } finally {
         setGuardandoPerfil(false);
       }
     }
   };
 
-  const shareMyCode = async () => {
-    try {
-      await Share.share({
-        message: `¡Únete a mi red de exploradores! Mi código de amigo es: ${userData.friendCode}`,
-      });
-    } catch (error) {}
+  const handleCodeOptions = () => {
+    Alert.alert("Tu Código de Amigo", userData.friendCode, [
+      {
+        text: "Copiar al portapapeles",
+        onPress: () => {
+          // En una app real usarías Clipboard.setString
+          Alert.alert("Copiado", "Código copiado correctamente.");
+        },
+      },
+      {
+        text: "Compartir código",
+        onPress: () => Share.share({ message: userData.friendCode }),
+      },
+      { text: "Cancelar", style: "cancel" },
+    ]);
+  };
+
+  const seleccionarPortada = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [16, 9],
+      quality: 0.5,
+    });
+    if (!result.canceled && result.assets && auth.currentUser) {
+      setGuardandoPerfil(true);
+      try {
+        const res = await fetch(result.assets[0].uri);
+        const blob = await res.blob();
+        const storageRef = ref(
+          getStorage(),
+          `portadas/${auth.currentUser.uid}`,
+        );
+        await uploadBytes(storageRef, blob);
+        const url = await getDownloadURL(storageRef);
+        setUserData({ ...userData, portada: url });
+        await updateDoc(doc(db, "users", auth.currentUser.uid), {
+          portada: url,
+        });
+      } catch (e) {
+        console.log(e);
+      } finally {
+        setGuardandoPerfil(false);
+      }
+    }
   };
 
   // --- FUNCIONES CHAT PRIVADO ---
@@ -406,7 +536,7 @@ export default function SocialTab() {
       });
       setCodigoAmigo("");
       Alert.alert("¡Hecho!", "Amigo agregado.");
-    } catch (e) {}
+    } catch {}
   };
 
   const enviarMensaje = async (texto: string = nuevoMensaje) => {
@@ -425,10 +555,11 @@ export default function SocialTab() {
           senderId: auth.currentUser.uid,
           timestamp: serverTimestamp(),
           isLocationShare: false,
+          read: false, // 💡 CAMBIO: Marcamos como no leído por defecto
         });
       }
       setNuevoMensaje("");
-    } catch (e) {}
+    } catch {}
   };
 
   const eliminarMensaje = async (msgId: string) => {
@@ -436,7 +567,7 @@ export default function SocialTab() {
     const chatId = [auth.currentUser.uid, chatActivo.uid].sort().join("_");
     try {
       await deleteDoc(doc(db, "chats", chatId, "messages", msgId));
-    } catch (e) {}
+    } catch {}
   };
 
   const eliminarChat = async (amigo: any) => {
@@ -457,7 +588,7 @@ export default function SocialTab() {
                 friends: arrayRemove(auth.currentUser.uid),
               });
               Alert.alert("Eliminado", "La conexión ha sido borrada.");
-            } catch (e) {}
+            } catch {}
           },
         },
         { text: "Cancelar", style: "cancel" },
@@ -520,7 +651,7 @@ export default function SocialTab() {
       } else {
         Alert.alert("Error", "No se encontró ningún grupo con ese código.");
       }
-    } catch (e) {
+    } catch {
       Alert.alert("Error", "Hubo un problema al buscar el grupo.");
     }
   };
@@ -538,7 +669,7 @@ export default function SocialTab() {
       setModalJoinGroup(false);
       setJoinGroupCode("");
       setGrupoEncontrado(null);
-    } catch (e) {}
+    } catch {}
   };
 
   const unirseAlGrupoDirecto = async (grupo: any) => {
@@ -548,7 +679,7 @@ export default function SocialTab() {
         miembrosList: arrayUnion(auth.currentUser.uid),
       });
       Alert.alert("¡Éxito!", `Te has unido al grupo ${grupo.nombre}`);
-    } catch (e) {}
+    } catch {}
   };
 
   const enviarMensajeGrupo = async (texto: string = nuevoMensajeGrupo) => {
@@ -562,10 +693,12 @@ export default function SocialTab() {
           senderName: userData.username,
           senderFoto: userData.foto,
           timestamp: serverTimestamp(),
+          // 💡 Agregamos un array de quiénes han leído el mensaje
+          readBy: [auth.currentUser.uid],
         },
       );
       setNuevoMensajeGrupo("");
-    } catch (e) {}
+    } catch {}
   };
 
   const actualizarGrupoAdmin = async () => {
@@ -589,7 +722,7 @@ export default function SocialTab() {
       });
       setModalAdminGrupo(false);
       Alert.alert("Éxito", "Grupo actualizado.");
-    } catch (e) {
+    } catch {
     } finally {
       setGuardandoPerfil(false);
     }
@@ -609,7 +742,7 @@ export default function SocialTab() {
               if (grupoActivo?.id === grupoId) setGrupoActivo(null);
               setModalAdminGrupo(false);
               Alert.alert("Eliminado", "El grupo dejó de existir.");
-            } catch (e) {}
+            } catch {}
           },
         },
         { text: "Cancelar", style: "cancel" },
@@ -693,7 +826,7 @@ export default function SocialTab() {
       });
       Alert.alert("¡Enviado!", `Invitación compartida con ${amigo.username}`);
       setGrupoACompartir(null);
-    } catch (e) {}
+    } catch {}
   };
 
   // --- FILTROS DE LISTAS ---
@@ -740,7 +873,7 @@ export default function SocialTab() {
       setModalShare(false);
       setLugarACompartir(null);
       setComentarioInicial("");
-    } catch (e) {
+    } catch {
       Alert.alert("Error", "No se pudo publicar.");
     }
   };
@@ -761,7 +894,7 @@ export default function SocialTab() {
           likesUsers: arrayUnion(auth.currentUser.uid),
         });
       }
-    } catch (e) {}
+    } catch {}
   };
 
   const enviarComentarioFeed = async () => {
@@ -780,7 +913,7 @@ export default function SocialTab() {
         comentariosCount: increment(1),
       });
       setComentarioFeed("");
-    } catch (e) {}
+    } catch {}
   };
 
   const eliminarPost = (postId: string) => {
@@ -793,7 +926,7 @@ export default function SocialTab() {
           try {
             await deleteDoc(doc(db, "social_posts", postId));
             Alert.alert("Eliminada", "Tu publicación ha sido borrada.");
-          } catch (e) {}
+          } catch {}
         },
       },
     ]);
@@ -808,7 +941,7 @@ export default function SocialTab() {
       setModalEditPost(false);
       setPostAEditar(null);
       setTextoEditPost("");
-    } catch (e) {}
+    } catch {}
   };
 
   const reenviarPostAlChat = async (amigo: any) => {
@@ -831,7 +964,7 @@ export default function SocialTab() {
         lng: postSeleccionado.lugarDetails?.lng || null,
       });
       Alert.alert("¡Enviado!", `Compartido con ${amigo.username}`);
-    } catch (e) {}
+    } catch {}
   };
 
   const reenviarPostAlGrupo = async (grupo: any) => {
@@ -855,7 +988,7 @@ export default function SocialTab() {
         lng: postSeleccionado.lugarDetails?.lng || null,
       });
       Alert.alert("¡Enviado!", `Compartido con el grupo ${grupo.nombre}`);
-    } catch (e) {}
+    } catch {}
   };
 
   const renderPost = ({ item }: any) => {
@@ -1050,10 +1183,29 @@ export default function SocialTab() {
     </View>
   );
 
+  const agregarInteres = () => {
+    if (!nuevoInteres.trim()) return;
+    if (userData.intereses.includes(nuevoInteres.trim())) {
+      return Alert.alert("Aviso", "Este interés ya existe.");
+    }
+    setUserData({
+      ...userData,
+      intereses: [...userData.intereses, nuevoInteres.trim()],
+    });
+    setNuevoInteres("");
+  };
+
+  const eliminarInteres = (interes: string) => {
+    setUserData({
+      ...userData,
+      intereses: userData.intereses.filter((i) => i !== interes),
+    });
+  };
+
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <View style={styles.container}>
-        <BlurView intensity={85} tint="light" style={styles.header}>
+        <BlurView intensity={60} tint="light" style={styles.header}>
           <View style={styles.dynamicHeaderArea}>
             {activeTab === "feed" && (
               <TouchableOpacity
@@ -1142,22 +1294,22 @@ export default function SocialTab() {
             )}
 
             {activeTab === "perfil" && (
-              <TouchableOpacity
-                style={styles.headerActionMainBtn}
-                onPress={shareMyCode}
-              >
-                <View style={styles.headerActionIcon}>
-                  <Ionicons name="qr-code" size={18} color="#FFF" />
-                </View>
-                <Text
-                  style={[
-                    styles.headerActionText,
-                    { color: "#007AFF", fontWeight: "800" },
-                  ]}
+              <View style={styles.headerChatContainer}>
+                <TextInput
+                  placeholder="Código de amigo (Ej. X7B9A2)"
+                  style={styles.headerChatInput}
+                  value={codigoAmigo}
+                  onChangeText={setCodigoAmigo}
+                  autoCapitalize="characters"
+                  maxLength={6}
+                />
+                <TouchableOpacity
+                  style={styles.headerChatBtn}
+                  onPress={agregarAmigo}
                 >
-                  Copiar o compartir código
-                </Text>
-              </TouchableOpacity>
+                  <Ionicons name="person-add" size={20} color="#FFF" />
+                </TouchableOpacity>
+              </View>
             )}
           </View>
 
@@ -1204,7 +1356,7 @@ export default function SocialTab() {
                   renderItem={renderPost}
                   keyExtractor={(item) => item.id}
                   showsVerticalScrollIndicator={false}
-                  contentContainerStyle={{ paddingBottom: 60 }}
+                  contentContainerStyle={{ paddingBottom: 80, paddingTop: 70 }}
                 />
               )}
             </View>
@@ -1213,7 +1365,7 @@ export default function SocialTab() {
           {activeTab === "grupos" && (
             <ScrollView
               style={{ flex: 1, paddingHorizontal: 20 }}
-              contentContainerStyle={{ paddingBottom: 60 }}
+              contentContainerStyle={{ paddingBottom: 80, paddingTop: 70 }}
               showsVerticalScrollIndicator={false}
             >
               {showGroupSearch && (
@@ -1238,12 +1390,51 @@ export default function SocialTab() {
                       ? g.miembrosList.includes(auth.currentUser.uid)
                       : false;
 
+                  // 💡 1. Variable para el conteo de este grupo específico
+                  const groupCount = unreadGroups[g.id] || 0;
+
                   return (
                     <TouchableOpacity
                       key={g.id}
                       style={styles.groupCard}
                       activeOpacity={0.8}
                       onLongPress={() => handleGroupLongPress(g)}
+                      // 💡 2. También permitimos abrir el grupo tocando la tarjeta si es miembro
+                      onPress={async () => {
+                        if (esMiembro) {
+                          setGrupoActivo(g);
+                          // Lógica de limpieza de notificaciones (la misma del botón)
+                          try {
+                            const q = query(
+                              collection(db, "social_groups", g.id, "messages"),
+                            );
+                            const snap = await getDocs(q);
+                            snap.forEach((docMsg) => {
+                              if (
+                                !docMsg
+                                  .data()
+                                  .readBy?.includes(auth.currentUser?.uid)
+                              ) {
+                                updateDoc(
+                                  doc(
+                                    db,
+                                    "social_groups",
+                                    g.id,
+                                    "messages",
+                                    docMsg.id,
+                                  ),
+                                  {
+                                    readBy: arrayUnion(auth.currentUser!.uid),
+                                  },
+                                );
+                              }
+                            });
+                            setUnreadGroups((prev) => ({ ...prev, [g.id]: 0 }));
+                          } catch (e) {
+                            console.log(e);
+                          }
+                        }
+                      }}
                     >
                       <Image
                         source={{
@@ -1251,6 +1442,7 @@ export default function SocialTab() {
                         }}
                         style={styles.friendAvatar}
                       />
+
                       <View
                         style={{ flex: 1, paddingRight: 10, paddingLeft: 10 }}
                       >
@@ -1269,16 +1461,67 @@ export default function SocialTab() {
                           Cód: {g.id}
                         </Text>
                       </View>
+
+                      {/* 💡 3. INTEGRACIÓN DEL BADGE DE NOTIFICACIÓN */}
+                      {esMiembro && groupCount > 0 && (
+                        <View style={styles.unreadBadge}>
+                          <Text style={styles.unreadText}>
+                            {groupCount > 9 ? "9+" : groupCount}
+                          </Text>
+                        </View>
+                      )}
+
                       <TouchableOpacity
                         style={[
                           styles.joinBtn,
                           esMiembro && { backgroundColor: "#000" },
                         ]}
-                        onPress={() =>
-                          esMiembro
-                            ? setGrupoActivo(g)
-                            : unirseAlGrupoDirecto(g)
-                        }
+                        onPress={async () => {
+                          if (esMiembro) {
+                            setGrupoActivo(g);
+                            try {
+                              const q = query(
+                                collection(
+                                  db,
+                                  "social_groups",
+                                  g.id,
+                                  "messages",
+                                ),
+                              );
+                              const snap = await getDocs(q);
+                              snap.forEach((docMsg) => {
+                                const data = docMsg.data();
+                                if (
+                                  !data.readBy?.includes(auth.currentUser?.uid)
+                                ) {
+                                  updateDoc(
+                                    doc(
+                                      db,
+                                      "social_groups",
+                                      g.id,
+                                      "messages",
+                                      docMsg.id,
+                                    ),
+                                    {
+                                      readBy: arrayUnion(auth.currentUser!.uid),
+                                    },
+                                  );
+                                }
+                              });
+                              setUnreadGroups((prev) => ({
+                                ...prev,
+                                [g.id]: 0,
+                              }));
+                            } catch (error) {
+                              console.log(
+                                "Error al actualizar lectura de grupo:",
+                                error,
+                              );
+                            }
+                          } else {
+                            unirseAlGrupoDirecto(g);
+                          }
+                        }}
                       >
                         <Text style={styles.joinBtnText}>
                           {esMiembro ? "Abrir" : "Unirse"}
@@ -1294,7 +1537,7 @@ export default function SocialTab() {
           {activeTab === "chat" && (
             <ScrollView
               style={{ flex: 1, paddingHorizontal: 20 }}
-              contentContainerStyle={{ paddingBottom: 60 }}
+              contentContainerStyle={{ paddingBottom: 80, paddingTop: 70 }}
               showsVerticalScrollIndicator={false}
             >
               {misGruposConectados.length > 0 && (
@@ -1307,23 +1550,69 @@ export default function SocialTab() {
                     showsHorizontalScrollIndicator={false}
                     style={{ marginBottom: 25 }}
                   >
-                    {misGruposConectados.map((g) => (
-                      <TouchableOpacity
-                        key={g.id}
-                        style={styles.miniGroupCard}
-                        onPress={() => setGrupoActivo(g)}
-                      >
-                        <Image
-                          source={{
-                            uri: g.foto || "https://via.placeholder.com/150",
+                    {misGruposConectados.map((g) => {
+                      // 💡 1. Obtenemos el conteo de mensajes no leídos de este grupo
+                      const groupCount = unreadGroups[g.id] || 0;
+
+                      return (
+                        <TouchableOpacity
+                          key={g.id}
+                          style={styles.miniGroupCard}
+                          onPress={async () => {
+                            setGrupoActivo(g);
+
+                            // Lógica para marcar mensajes como leídos
+                            const q = query(
+                              collection(db, "social_groups", g.id, "messages"),
+                            );
+                            const snap = await getDocs(q);
+                            snap.forEach((docMsg) => {
+                              const data = docMsg.data();
+                              if (
+                                !data.readBy?.includes(auth.currentUser?.uid)
+                              ) {
+                                updateDoc(
+                                  doc(
+                                    db,
+                                    "social_groups",
+                                    g.id,
+                                    "messages",
+                                    docMsg.id,
+                                  ),
+                                  {
+                                    readBy: arrayUnion(auth.currentUser!.uid),
+                                  },
+                                );
+                              }
+                            });
+                            setUnreadGroups((prev) => ({ ...prev, [g.id]: 0 }));
                           }}
-                          style={styles.miniGroupImg}
-                        />
-                        <Text style={styles.miniGroupText} numberOfLines={1}>
-                          {g.nombre}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
+                        >
+                          <View style={{ position: "relative" }}>
+                            <Image
+                              source={{
+                                uri:
+                                  g.foto || "https://via.placeholder.com/150",
+                              }}
+                              style={styles.miniGroupImg}
+                            />
+
+                            {/* 💡 2. Badge de notificación flotante */}
+                            {groupCount > 0 && (
+                              <View style={styles.miniUnreadBadge}>
+                                <Text style={styles.miniUnreadText}>
+                                  {groupCount > 9 ? "9+" : groupCount}
+                                </Text>
+                              </View>
+                            )}
+                          </View>
+
+                          <Text style={styles.miniGroupText} numberOfLines={1}>
+                            {g.nombre}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
                   </ScrollView>
                 </>
               )}
@@ -1331,27 +1620,42 @@ export default function SocialTab() {
               <Text style={[styles.sectionTitle, { marginTop: 0 }]}>
                 Tus Conexiones
               </Text>
-              {amigosList.length === 0 ? (
-                <View style={styles.emptyStateBox}>
-                  <Ionicons name="people" size={48} color="#C7C7CC" />
-                  <Text style={styles.emptyStateText}>
-                    Aún no tienes conexiones directas.
-                  </Text>
-                </View>
-              ) : (
-                amigosList.map((amigo) => (
+              {amigosList.map((amigo) => {
+                // 1. Obtenemos el número de mensajes no leídos para este amigo
+                const count = unreadChats[amigo.uid] || 0;
+
+                return (
                   <Swipeable
                     key={amigo.uid}
                     renderRightActions={() => renderFriendRightActions(amigo)}
                   >
                     <TouchableOpacity
                       style={styles.friendCard}
-                      onPress={() => {
+                      onPress={async () => {
+                        // Abrimos el chat
                         setChatActivo(amigo);
-                        setUnreadChats((prev) => ({
-                          ...prev,
-                          [amigo.uid]: false,
-                        }));
+
+                        // 2. Lógica para limpiar notificaciones en Firebase al abrir el chat
+                        if (count > 0) {
+                          const chatId = [auth.currentUser!.uid, amigo.uid]
+                            .sort()
+                            .join("_");
+                          const q = query(
+                            collection(db, "chats", chatId, "messages"),
+                            where("senderId", "==", amigo.uid),
+                            where("read", "==", false),
+                          );
+
+                          const snap = await getDocs(q);
+                          snap.forEach((docMsg) => {
+                            updateDoc(
+                              doc(db, "chats", chatId, "messages", docMsg.id),
+                              {
+                                read: true,
+                              },
+                            );
+                          });
+                        }
                       }}
                     >
                       <Image
@@ -1367,30 +1671,49 @@ export default function SocialTab() {
                         </Text>
                       </View>
 
-                      {unreadChats[amigo.uid] ? (
-                        <View style={styles.unreadBadge} />
-                      ) : (
-                        <Ionicons
-                          name="chevron-forward"
-                          size={18}
-                          color="#C7C7CC"
-                        />
+                      {/* 3. RECUENTO DE NOTIFICACIONES MEJORADO (Estilo iOS) */}
+                      {typeof count === "number" && count > 0 && (
+                        <View style={styles.unreadBadge}>
+                          <Text style={styles.unreadText}>
+                            {count > 9 ? "9+" : count}
+                          </Text>
+                        </View>
                       )}
+
+                      <Ionicons
+                        name="chevron-forward"
+                        size={18}
+                        color="#C7C7CC"
+                      />
                     </TouchableOpacity>
                   </Swipeable>
-                ))
-              )}
+                );
+              })}
             </ScrollView>
           )}
 
           {activeTab === "perfil" && (
             <ScrollView
-              style={{ flex: 1, paddingHorizontal: 20 }}
-              contentContainerStyle={{ paddingBottom: 60 }}
+              style={{ flex: 1 }}
+              contentContainerStyle={{ paddingBottom: 150 }}
               showsVerticalScrollIndicator={false}
             >
-              <View style={styles.profileHeroCard}>
-                <View style={styles.profileAvatarContainer}>
+              {/* SECCIÓN PORTADA Y FOTO */}
+              <View style={{ height: 260, marginBottom: 20 }}>
+                <TouchableOpacity
+                  onPress={seleccionarPortada}
+                  activeOpacity={0.9}
+                >
+                  <Image
+                    source={{ uri: userData.portada }}
+                    style={styles.portadaImg}
+                  />
+                  <View style={styles.editPortadaBadge}>
+                    <Ionicons name="image" size={18} color="#FFF" />
+                  </View>
+                </TouchableOpacity>
+
+                <View style={styles.profileAvatarWrapper}>
                   <Image
                     source={{ uri: userData.foto }}
                     style={styles.profileLargeAvatar}
@@ -1399,26 +1722,53 @@ export default function SocialTab() {
                     style={styles.editAvatarIcon}
                     onPress={seleccionarFotoPerfil}
                   >
-                    <Ionicons name="camera" size={20} color="#FFF" />
+                    <Ionicons name="image" size={20} color="#FFF" />
                   </TouchableOpacity>
                 </View>
-                <Text style={styles.heroName}>{userData.username}</Text>
               </View>
-              <View style={styles.formGroup}>
+
+              {/* NOMBRE, FRASE Y CÓDIGO */}
+              <View style={{ alignItems: "center", paddingHorizontal: 20 }}>
+                <Text style={styles.heroName}>{userData.username}</Text>
+                <Text style={styles.userFrase}>
+                  {`"${userData.frase || "Sin frase de estado"}"`}
+                </Text>
+
+                <TouchableOpacity
+                  style={styles.friendCodeBadge}
+                  onLongPress={handleCodeOptions}
+                  onPress={() => Share.share({ message: userData.friendCode })}
+                >
+                  <Text style={styles.friendCodeLabel}>CÓDIGO:</Text>
+                  <Text style={styles.friendCodeText}>
+                    {userData.friendCode}
+                  </Text>
+                  <Ionicons
+                    name="copy-outline"
+                    size={14}
+                    color="#007AFF"
+                    style={{ marginLeft: 5 }}
+                  />
+                </TouchableOpacity>
+              </View>
+
+              {/* FORMULARIO DE AJUSTES */}
+              <View style={{ paddingHorizontal: 20, marginTop: 25 }}>
                 <Text style={styles.formLabel}>Ajustes de Perfil</Text>
                 <View style={styles.formContainer}>
                   <View style={styles.formRow}>
                     <Ionicons
-                      name="person-outline"
+                      name="chatbubble-outline"
                       size={20}
                       color="#8E8E93"
                       style={styles.formIcon}
                     />
                     <TextInput
                       style={styles.formInput}
-                      value={userData.username}
+                      placeholder="Tu frase corta..."
+                      value={userData.frase}
                       onChangeText={(t) =>
-                        setUserData({ ...userData, username: t })
+                        setUserData({ ...userData, frase: t })
                       }
                     />
                   </View>
@@ -1433,29 +1783,66 @@ export default function SocialTab() {
                     <TextInput
                       style={[styles.formInput, { height: 80, paddingTop: 18 }]}
                       multiline
+                      placeholder="Biografía..."
                       value={userData.bio}
                       onChangeText={(t) => setUserData({ ...userData, bio: t })}
                     />
                   </View>
                 </View>
+
+                {/* SECCIÓN INTERESES */}
+                <Text style={[styles.formLabel, { marginTop: 25 }]}>
+                  Mis Intereses
+                </Text>
+                <View style={[styles.formContainer, { padding: 15 }]}>
+                  <View
+                    style={{ flexDirection: "row", gap: 10, marginBottom: 12 }}
+                  >
+                    <TextInput
+                      style={styles.interesInput}
+                      placeholder="Añadir..."
+                      value={nuevoInteres}
+                      onChangeText={setNuevoInteres}
+                    />
+                    <TouchableOpacity
+                      style={styles.addInteresBtn}
+                      onPress={agregarInteres}
+                    >
+                      <Ionicons name="add" size={24} color="#FFF" />
+                    </TouchableOpacity>
+                  </View>
+                  <View
+                    style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}
+                  >
+                    {userData.intereses.map((it, idx) => (
+                      <View key={idx} style={styles.interesChip}>
+                        <Text style={styles.interesText}>{it}</Text>
+                        <TouchableOpacity onPress={() => eliminarInteres(it)}>
+                          <Ionicons
+                            name="close-circle"
+                            size={16}
+                            color="#007AFF"
+                          />
+                        </TouchableOpacity>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+
+                <TouchableOpacity
+                  style={styles.saveProfileBtn}
+                  onPress={guardarPerfil}
+                >
+                  <Text style={styles.saveProfileText}>Guardar Perfil</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.logoutBtn}
+                  onPress={() => auth.signOut()}
+                >
+                  <Text style={styles.logoutBtnText}>Cerrar Sesión Segura</Text>
+                </TouchableOpacity>
               </View>
-              <TouchableOpacity
-                style={styles.saveProfileBtn}
-                onPress={guardarPerfil}
-                disabled={guardandoPerfil}
-              >
-                {guardandoPerfil ? (
-                  <ActivityIndicator color="#FFF" />
-                ) : (
-                  <Text style={styles.saveProfileText}>Guardar Cambios</Text>
-                )}
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.logoutBtn}
-                onPress={() => auth.signOut()}
-              >
-                <Text style={styles.logoutBtnText}>Cerrar Sesión Segura</Text>
-              </TouchableOpacity>
             </ScrollView>
           )}
         </View>
@@ -1506,7 +1893,7 @@ export default function SocialTab() {
             <View style={styles.modalBackdrop}>
               <View style={styles.modalContent}>
                 <View style={styles.modalIndicator} />
-                <Text style={styles.modalTitle}>Crear Comunidad</Text>
+                <Text style={styles.modalTitle}>Crear Grupo</Text>
 
                 <TouchableOpacity
                   style={[styles.profileAvatarContainer, { marginTop: 20 }]}
@@ -1535,7 +1922,7 @@ export default function SocialTab() {
                   <View style={styles.formDivider} />
                   <TextInput
                     style={[styles.modalInput, { height: 80, paddingTop: 15 }]}
-                    placeholder="Descripción de la comunidad"
+                    placeholder="Descripción del grupo"
                     multiline
                     value={nuevoGrupo.descripcion}
                     onChangeText={(t) =>
@@ -1599,20 +1986,25 @@ export default function SocialTab() {
                 >
                   Unirse a un Grupo
                 </Text>
-
                 {!grupoEncontrado ? (
                   <>
                     <TextInput
-                      style={[
-                        styles.headerChatInput,
-                        {
-                          marginBottom: 20,
-                          borderWidth: 1,
-                          borderColor: "#E5E5EA",
-                          height: 50,
-                        },
-                      ]}
+                      style={{
+                        backgroundColor: "#F2F2F7", // Fondo gris claro para contraste 💡
+                        paddingHorizontal: 20,
+                        paddingVertical: 15,
+                        borderRadius: 15,
+                        fontSize: 16,
+                        fontWeight: "700",
+                        color: "#1C1C1E", // Texto negro para que se vea 💡
+                        marginBottom: 20,
+                        borderWidth: 1,
+                        borderColor: "#E5E5EA",
+                        textAlign: "center", // Centrado para estilo de "código"
+                        letterSpacing: 1,
+                      }}
                       placeholder="Ingresa el código (Ej. X7B9A2)"
+                      placeholderTextColor="#8E8E93" // Color del texto de ayuda
                       value={joinGroupCode}
                       onChangeText={setJoinGroupCode}
                       autoCapitalize="none"
@@ -1620,7 +2012,11 @@ export default function SocialTab() {
                     <TouchableOpacity
                       style={[
                         styles.confirmBtn,
-                        { width: "100%", marginBottom: 10 },
+                        {
+                          width: "100%",
+                          marginBottom: 10,
+                          justifyContent: "center",
+                        },
                       ]}
                       onPress={buscarGrupoPorCodigo}
                     >
@@ -1666,7 +2062,11 @@ export default function SocialTab() {
                     <TouchableOpacity
                       style={[
                         styles.confirmBtn,
-                        { width: "100%", marginBottom: 10 },
+                        {
+                          width: "100%",
+                          marginBottom: 10,
+                          justifyContent: "center",
+                        },
                       ]}
                       onPress={confirmarUnirseGrupo}
                     >
@@ -1674,7 +2074,6 @@ export default function SocialTab() {
                     </TouchableOpacity>
                   </>
                 )}
-
                 <TouchableOpacity
                   style={[
                     styles.cancelBtnFull,
@@ -1853,6 +2252,118 @@ export default function SocialTab() {
             behavior={Platform.OS === "ios" ? "padding" : undefined}
             style={{ flex: 1, backgroundColor: "#F2F2F7" }}
           >
+            {/* MODAL ADMIN DE GRUPO */}
+            <Modal visible={modalAdminGrupo} animationType="slide" transparent>
+              <KeyboardAvoidingView
+                behavior={Platform.OS === "ios" ? "padding" : "height"}
+                style={{ flex: 1 }}
+              >
+                <View style={styles.modalBackdrop}>
+                  <View style={styles.modalContent}>
+                    <View style={styles.modalIndicator} />
+                    <Text style={styles.modalTitle}>Administrar Grupo</Text>
+
+                    <TouchableOpacity
+                      style={styles.profileAvatarContainer}
+                      onPress={seleccionarFotoGrupo}
+                    >
+                      <Image
+                        source={{
+                          uri:
+                            grupoFotoUri ||
+                            grupoActivo?.foto ||
+                            "https://via.placeholder.com/150",
+                        }}
+                        style={styles.profileLargeAvatar}
+                      />
+                      <View style={styles.editAvatarIcon}>
+                        <Ionicons name="camera" size={20} color="#FFF" />
+                      </View>
+                    </TouchableOpacity>
+
+                    <View
+                      style={[styles.formContainerModal, { marginTop: 10 }]}
+                    >
+                      <TextInput
+                        style={styles.modalInput}
+                        placeholder="Nombre"
+                        value={grupoActivo?.nombre}
+                        onChangeText={(t) =>
+                          setGrupoActivo({ ...grupoActivo, nombre: t })
+                        }
+                      />
+                      <View style={styles.formDivider} />
+                      <TextInput
+                        style={[
+                          styles.modalInput,
+                          { height: 80, paddingTop: 15 },
+                        ]}
+                        placeholder="Descripción"
+                        multiline
+                        value={grupoActivo?.descripcion}
+                        onChangeText={(t) =>
+                          setGrupoActivo({ ...grupoActivo, descripcion: t })
+                        }
+                      />
+                    </View>
+                    <View style={styles.privacyRow}>
+                      <View>
+                        <Text style={styles.privacyLabel}>Grupo Privado</Text>
+                        <Text
+                          style={{
+                            fontSize: 12,
+                            color: "#8E8E93",
+                            marginTop: 2,
+                          }}
+                        >
+                          Oculto en búsquedas
+                        </Text>
+                      </View>
+                      <Switch
+                        value={grupoActivo?.esPrivado}
+                        onValueChange={(val: boolean) =>
+                          setGrupoActivo({ ...grupoActivo, esPrivado: val })
+                        }
+                        trackColor={{ false: "#D1D1D6", true: "#34C759" }}
+                      />
+                    </View>
+
+                    <TouchableOpacity
+                      style={[
+                        styles.cancelBtnFull,
+                        { backgroundColor: "#FF3B3015", marginTop: 10 },
+                      ]}
+                      onPress={() => eliminarGrupoConfirm(grupoActivo?.id)}
+                    >
+                      <Text
+                        style={[styles.cancelBtnText, { color: "#FF3B30" }]}
+                      >
+                        Eliminar Grupo Definitivamente
+                      </Text>
+                    </TouchableOpacity>
+
+                    <View style={styles.modalButtons}>
+                      <TouchableOpacity
+                        style={styles.cancelBtn}
+                        onPress={() => setModalAdminGrupo(false)}
+                      >
+                        <Text style={styles.cancelBtnText}>Cerrar</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.confirmBtn}
+                        onPress={actualizarGrupoAdmin}
+                      >
+                        {guardandoPerfil ? (
+                          <ActivityIndicator color="#FFF" />
+                        ) : (
+                          <Text style={styles.confirmBtnText}>Guardar</Text>
+                        )}
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                </View>
+              </KeyboardAvoidingView>
+            </Modal>
             <View style={styles.chatHeader}>
               <TouchableOpacity
                 onPress={() => {
@@ -1879,7 +2390,9 @@ export default function SocialTab() {
               <TouchableOpacity
                 onPress={() => {
                   if (grupoActivo?.creador === auth.currentUser?.uid) {
+                    // 1. Cargamos los datos actuales en los estados del formulario
                     setGrupoFotoUri(grupoActivo.foto);
+                    // 2. Abrimos el modal de administración
                     setModalAdminGrupo(true);
                   } else {
                     abandonarGrupoConfirm(grupoActivo.id);
@@ -2081,108 +2594,6 @@ export default function SocialTab() {
                 >
                   <Ionicons name="arrow-up" size={22} color="#FFF" />
                 </TouchableOpacity>
-              </View>
-            </View>
-          </KeyboardAvoidingView>
-        </Modal>
-
-        {/* MODAL ADMIN DE GRUPO */}
-        <Modal visible={modalAdminGrupo} animationType="slide" transparent>
-          <KeyboardAvoidingView
-            behavior={Platform.OS === "ios" ? "padding" : "height"}
-            style={{ flex: 1 }}
-          >
-            <View style={styles.modalBackdrop}>
-              <View style={styles.modalContent}>
-                <View style={styles.modalIndicator} />
-                <Text style={styles.modalTitle}>Administrar Grupo</Text>
-
-                <TouchableOpacity
-                  style={styles.profileAvatarContainer}
-                  onPress={seleccionarFotoGrupo}
-                >
-                  <Image
-                    source={{
-                      uri:
-                        grupoFotoUri ||
-                        grupoActivo?.foto ||
-                        "https://via.placeholder.com/150",
-                    }}
-                    style={styles.profileLargeAvatar}
-                  />
-                  <View style={styles.editAvatarIcon}>
-                    <Ionicons name="camera" size={20} color="#FFF" />
-                  </View>
-                </TouchableOpacity>
-
-                <View style={[styles.formContainerModal, { marginTop: 10 }]}>
-                  <TextInput
-                    style={styles.modalInput}
-                    placeholder="Nombre"
-                    value={grupoActivo?.nombre}
-                    onChangeText={(t) =>
-                      setGrupoActivo({ ...grupoActivo, nombre: t })
-                    }
-                  />
-                  <View style={styles.formDivider} />
-                  <TextInput
-                    style={[styles.modalInput, { height: 80, paddingTop: 15 }]}
-                    placeholder="Descripción"
-                    multiline
-                    value={grupoActivo?.descripcion}
-                    onChangeText={(t) =>
-                      setGrupoActivo({ ...grupoActivo, descripcion: t })
-                    }
-                  />
-                </View>
-                <View style={styles.privacyRow}>
-                  <View>
-                    <Text style={styles.privacyLabel}>Grupo Privado</Text>
-                    <Text
-                      style={{ fontSize: 12, color: "#8E8E93", marginTop: 2 }}
-                    >
-                      Oculto en búsquedas
-                    </Text>
-                  </View>
-                  <Switch
-                    value={grupoActivo?.esPrivado}
-                    onValueChange={(val: boolean) =>
-                      setGrupoActivo({ ...grupoActivo, esPrivado: val })
-                    }
-                    trackColor={{ false: "#D1D1D6", true: "#34C759" }}
-                  />
-                </View>
-
-                <TouchableOpacity
-                  style={[
-                    styles.cancelBtnFull,
-                    { backgroundColor: "#FF3B3015", marginTop: 10 },
-                  ]}
-                  onPress={() => eliminarGrupoConfirm(grupoActivo?.id)}
-                >
-                  <Text style={[styles.cancelBtnText, { color: "#FF3B30" }]}>
-                    Eliminar Grupo Definitivamente
-                  </Text>
-                </TouchableOpacity>
-
-                <View style={styles.modalButtons}>
-                  <TouchableOpacity
-                    style={styles.cancelBtn}
-                    onPress={() => setModalAdminGrupo(false)}
-                  >
-                    <Text style={styles.cancelBtnText}>Cerrar</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.confirmBtn}
-                    onPress={actualizarGrupoAdmin}
-                  >
-                    {guardandoPerfil ? (
-                      <ActivityIndicator color="#FFF" />
-                    ) : (
-                      <Text style={styles.confirmBtnText}>Guardar</Text>
-                    )}
-                  </TouchableOpacity>
-                </View>
               </View>
             </View>
           </KeyboardAvoidingView>
@@ -2613,8 +3024,11 @@ const styles = StyleSheet.create({
     width: "100%",
     zIndex: 10,
     paddingBottom: 15,
-    paddingTop: Platform.OS === "ios" ? 60 : 40,
+    paddingTop: Platform.OS === "ios" ? 75 : 45,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: "rgba(0,0,0,0.1)",
   },
+
   tabBar: { flexDirection: "row", paddingLeft: 20 },
 
   chip: {
@@ -2711,7 +3125,7 @@ const styles = StyleSheet.create({
     borderColor: "#E5E5EA",
   },
   emptyStateText: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: "800",
     color: "#1C1C1E",
     marginTop: 15,
@@ -2826,8 +3240,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#E5E5EA",
   },
-  groupTitle: { fontSize: 19, fontWeight: "900", color: "#1C1C1E" },
-  groupDesc: { fontSize: 14, color: "#8E8E93", marginTop: 4, lineHeight: 20 },
+  groupTitle: { fontSize: 16, fontWeight: "900", color: "#1C1C1E" },
+  groupDesc: { fontSize: 12, color: "#8E8E93", marginTop: 4, lineHeight: 20 },
   joinBtn: {
     backgroundColor: "#007AFF",
     paddingVertical: 12,
@@ -2866,24 +3280,31 @@ const styles = StyleSheet.create({
     shadowRadius: 15,
     marginTop: 10,
   },
-  profileAvatarContainer: { alignItems: "center", marginBottom: 15 },
+  profileAvatarContainer: {
+    width: 120, // 💡 Debe ser igual al ancho de la imagen
+    height: 120, // 💡 Debe ser igual al alto de la imagen
+    alignSelf: "center", // Centra el bloque completo en el modal
+    position: "relative", // Contenedor de referencia para el icono
+    marginTop: 20,
+  },
   profileLargeAvatar: {
     width: 120,
     height: 120,
     borderRadius: 60,
-    borderWidth: 4,
-    borderColor: "#F2F2F7",
     backgroundColor: "#E5E5EA",
   },
   editAvatarIcon: {
     position: "absolute",
-    bottom: 0,
-    right: 0,
+    bottom: 0, // Lo pega abajo
+    right: 0, // Lo pega a la derecha del contenedor de 120px 💡
     backgroundColor: "#007AFF",
-    padding: 10,
-    borderRadius: 22,
-    borderWidth: 4,
-    borderColor: "#FFF",
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 3,
+    borderColor: "#FFF", // Añade un borde blanco para que resalte
   },
   heroName: {
     fontSize: 26,
@@ -2953,7 +3374,7 @@ const styles = StyleSheet.create({
   logoutBtnText: { color: "#FF3B30", fontWeight: "800", fontSize: 16 },
 
   sectionTitle: {
-    fontSize: 22,
+    fontSize: 16,
     fontWeight: "900",
     marginBottom: 15,
     marginTop: 10,
@@ -2984,10 +3405,39 @@ const styles = StyleSheet.create({
   friendName: { fontSize: 17, fontWeight: "900", color: "#1C1C1E" },
   friendBio: { fontSize: 14, color: "#8E8E93", marginTop: 4 },
   unreadBadge: {
-    width: 14,
-    height: 14,
-    borderRadius: 7,
     backgroundColor: "#007AFF",
+    minWidth: 22,
+    height: 22,
+    borderRadius: 11,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 5,
+    marginRight: 10,
+  },
+  unreadText: {
+    color: "#FFF",
+    fontSize: 12,
+    fontWeight: "800",
+  },
+  miniUnreadBadge: {
+    position: "absolute", // 💡 Permite que flote sobre la imagen
+    top: -2, // Ajusta la posición vertical
+    right: -2, // Ajusta la posición horizontal
+    backgroundColor: "#007AFF", // Color rojo para destacar en miniaturas
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9, // Hace que sea circular
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 2, // Añade un borde blanco para separarlo de la foto
+    borderColor: "#FFF",
+    paddingHorizontal: 2,
+    zIndex: 1, // Asegura que esté por encima de la foto
+  },
+  miniUnreadText: {
+    color: "#FFF",
+    fontSize: 9, // Fuente pequeña para el espacio reducido
+    fontWeight: "900",
   },
   swipeActionsRow: { flexDirection: "row", width: 130, marginBottom: 12 },
   swipeInfoBtn: {
@@ -3165,13 +3615,13 @@ const styles = StyleSheet.create({
   },
   cancelBtnText: { fontWeight: "800", color: "#8E8E93", fontSize: 16 },
   confirmBtn: {
-    flex: 2,
     backgroundColor: "#007AFF",
     borderRadius: 22,
-    alignItems: "center",
+    alignItems: "center", // Centra horizontalmente
+    justifyContent: "center", // Centra verticalmente 💡
     padding: 18,
   },
-  confirmBtnText: { color: "#FFF", fontWeight: "900", fontSize: 16 },
+  confirmBtnText: { color: "#ffffff", fontWeight: "900", fontSize: 16 },
   formContainerModal: {
     backgroundColor: "#F2F2F7",
     borderRadius: 24,
@@ -3254,5 +3704,64 @@ const styles = StyleSheet.create({
     backgroundColor: "#F2F2F7",
     borderRadius: 20,
     alignItems: "center",
+  },
+  portadaImg: {
+    width: "100%",
+    height: 200,
+    backgroundColor: "#E5E5EA",
+  },
+  editPortadaBadge: {
+    position: "absolute",
+    top: 150,
+    right: 20,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    padding: 8,
+    borderRadius: 20,
+  },
+  profileAvatarWrapper: {
+    position: "absolute",
+    bottom: 0,
+    alignSelf: "center",
+    borderWidth: 5,
+    borderColor: "#F4F4F6",
+    borderRadius: 65,
+  },
+  userFrase: {
+    fontSize: 14,
+    color: "#8E8E93",
+    fontStyle: "italic",
+    marginBottom: 10,
+    textAlign: "center",
+  },
+  interesInput: {
+    flex: 1,
+    backgroundColor: "#F2F2F7",
+    borderRadius: 12,
+    paddingHorizontal: 15,
+    height: 45,
+  },
+  addInteresBtn: {
+    backgroundColor: "#000",
+    width: 45,
+    height: 45,
+    borderRadius: 12,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  interesChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#007AFF15",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "#007AFF30",
+    gap: 5,
+  },
+  interesText: {
+    color: "#007AFF",
+    fontWeight: "700",
+    fontSize: 13,
   },
 });

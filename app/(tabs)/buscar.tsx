@@ -35,11 +35,15 @@ import {
 } from "react-native";
 import { auth, db } from "../../firebaseConfig";
 
+// Importa tus componentes extraídos
+import ShareFriendModal from "../../components/ShareFriendModal";
+import ExploreHeader from "../../components/buscar/ExploreHeader";
+import ExploreListItem from "../../components/buscar/ExploreListItem";
+
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const HEADER_HEIGHT = Platform.OS === "ios" ? 200 : 180;
 
 const genAI = new GoogleGenerativeAI(process.env.EXPO_PUBLIC_GEMINI_API_KEY!);
-
 const modelIA = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
 export default function BuscarTab() {
@@ -151,7 +155,6 @@ export default function BuscarTab() {
         senderId: auth.currentUser.uid,
         timestamp: serverTimestamp(),
         isLocationShare: true,
-        // 💡 CLAVE: Pasamos todo el objeto del lugar para que el Chat lo pueda dibujar
         lugarDetails: lugarSeleccionado,
         lat: lugarSeleccionado.lat || null,
         lng: lugarSeleccionado.lng || null,
@@ -229,24 +232,18 @@ export default function BuscarTab() {
     });
   }, [lugarSeleccionado]);
 
-  const FiltroChip = ({ title }: { title: string }) => (
-    <TouchableOpacity
-      style={[styles.chip, filtroActivo === title && styles.chipActive]}
-      onPress={() => setFiltroActivo(title)}
-    >
-      <Text
-        style={[
-          styles.chipText,
-          filtroActivo === title && styles.chipTextActive,
-        ]}
-      >
-        {title}
-      </Text>
-    </TouchableOpacity>
-  );
-
   return (
     <View style={styles.container}>
+      {/* 💡 COMPONENTE: CABECERA Y FILTROS */}
+      <ExploreHeader
+        search={search}
+        setSearch={setSearch}
+        cargando={cargando}
+        cargarLugares={cargarLugares}
+        filtroActivo={filtroActivo}
+        setFiltroActivo={setFiltroActivo}
+      />
+
       <FlatList
         data={lugaresFiltrados}
         keyExtractor={(item) => item.id}
@@ -262,99 +259,39 @@ export default function BuscarTab() {
             progressViewOffset={HEADER_HEIGHT}
           />
         }
-        renderItem={({ item }) => {
-          const autor =
-            item.userId === auth.currentUser?.uid
-              ? "Mí (Tú)"
-              : item.usuario || "Explorador";
-          return (
-            <TouchableOpacity
-              style={styles.card}
-              onPress={() => setLugarSeleccionado(item)}
-              activeOpacity={0.8}
-            >
-              <View style={styles.thumbContainer}>
-                {item.fotos && item.fotos[0] ? (
-                  <Image source={{ uri: item.fotos[0] }} style={styles.thumb} />
-                ) : (
-                  <View style={styles.placeholderThumb}>
-                    <Ionicons name="image-outline" size={24} color="#CCC" />
-                  </View>
-                )}
-              </View>
-              <View style={styles.info}>
-                <View style={styles.authorBadge}>
-                  <Ionicons name="person-circle" size={12} color="#8E8E93" />
-                  <Text style={styles.authorText}>Por {autor}</Text>
-                </View>
-                <Text style={styles.placeTitle} numberOfLines={1}>
-                  {item.titulo}
-                </Text>
-                <Text style={styles.tags} numberOfLines={1}>
-                  {item.hashtags}
-                </Text>
-              </View>
-              <Ionicons name="chevron-forward" size={14} color="#C7C7CC" />
-            </TouchableOpacity>
-          );
-        }}
+        renderItem={({ item }) => (
+          <ExploreListItem
+            item={item}
+            currentUserId={auth.currentUser?.uid}
+            onPress={() => setLugarSeleccionado(item)}
+          />
+        )}
       />
 
-      <BlurView intensity={90} tint="light" style={styles.headerGlass}>
-        <View style={styles.headerContent}>
-          <View style={styles.searchRow}>
-            <View style={styles.searchBar}>
-              <Ionicons
-                name="search"
-                size={18}
-                color="#8E8E93"
-                style={{ marginRight: 8 }}
-              />
-              <TextInput
-                placeholder="Buscar por nombre, etiquetas..."
-                style={styles.searchInput}
-                value={search}
-                onChangeText={setSearch}
-              />
-            </View>
-            <TouchableOpacity
-              onPress={cargarLugares}
-              style={styles.reloadBtnInline}
-            >
-              {cargando ? (
-                <ActivityIndicator size="small" color="#007AFF" />
-              ) : (
-                <Ionicons name="refresh" size={20} color="#007AFF" />
-              )}
-            </TouchableOpacity>
-          </View>
-          <View style={styles.filterContainer}>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.filterScroll}
-            >
-              <FiltroChip title="Todo" />
-              <FiltroChip title="Cerca de mí" />
-              <FiltroChip title="# Naturaleza" />
-              <FiltroChip title="# Cascada" />
-              <FiltroChip title="# Ciudad" />
-            </ScrollView>
-          </View>
-        </View>
-      </BlurView>
+      {/* 💡 OVERLAY: ENVIAR AL CHAT (Capa Superior en la Raíz) */}
+      <ShareFriendModal
+        visible={modalSendToChat}
+        amigosList={amigosList}
+        onReenviar={reenviarAlChat}
+        onClose={() => setModalSendToChat(false)}
+      />
 
-      <Modal visible={!!lugarSeleccionado} animationType="slide" transparent>
+      {/* DETALLE DEL LUGAR */}
+      <Modal
+        visible={!!lugarSeleccionado}
+        animationType="slide"
+        transparent={false}
+      >
         <KeyboardAvoidingView
           behavior={Platform.OS === "ios" ? "padding" : undefined}
           style={{ flex: 1 }}
         >
-          <BlurView intensity={100} tint="light" style={styles.modalContent}>
+          <BlurView intensity={60} tint="light" style={styles.modalContent}>
             <TouchableOpacity
               style={styles.closeBtn}
               onPress={() => {
                 setLugarSeleccionado(null);
-                setModalSendToChat(false); // Reinicia el overlay de chat por seguridad
+                setModalSendToChat(false);
               }}
             >
               <Ionicons name="close-circle" size={34} color="#000" />
@@ -585,72 +522,12 @@ export default function BuscarTab() {
                 </View>
               </ScrollView>
             )}
-
-            {/* 💡 OVERLAY: ENVIAR AL CHAT (Capa Superior Integrada) */}
-            {modalSendToChat && (
-              <View
-                style={[
-                  StyleSheet.absoluteFill,
-                  {
-                    backgroundColor: "rgba(0,0,0,0.6)",
-                    justifyContent: "center",
-                    padding: 20,
-                    zIndex: 1000,
-                  },
-                ]}
-              >
-                <View style={styles.sendChatCard}>
-                  <Text
-                    style={[
-                      styles.modalTitle,
-                      { textAlign: "center", marginBottom: 5 },
-                    ]}
-                  >
-                    Recomendar a un amigo
-                  </Text>
-                  {amigosList.length === 0 ? (
-                    <Text style={styles.emptyText}>
-                      Ve a la pestaña Comunidad y agrega amigos usando su Código
-                      de Amigo.
-                    </Text>
-                  ) : (
-                    <ScrollView style={{ maxHeight: 300, marginTop: 15 }}>
-                      {amigosList.map((amigo) => (
-                        <TouchableOpacity
-                          key={amigo.uid}
-                          style={styles.friendCardMini}
-                          onPress={() => reenviarAlChat(amigo)}
-                        >
-                          <Image
-                            source={{
-                              uri:
-                                amigo.foto || "https://via.placeholder.com/150",
-                            }}
-                            style={styles.friendAvatarMini}
-                          />
-                          <Text style={styles.friendNameMini}>
-                            {amigo.username}
-                          </Text>
-                          <View style={styles.sendIconMini}>
-                            <Ionicons
-                              name="paper-plane"
-                              size={16}
-                              color="#FFF"
-                            />
-                          </View>
-                        </TouchableOpacity>
-                      ))}
-                    </ScrollView>
-                  )}
-                  <TouchableOpacity
-                    style={styles.cancelBtnFull}
-                    onPress={() => setModalSendToChat(false)}
-                  >
-                    <Text style={styles.cancelBtnText}>Cerrar</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            )}
+            <ShareFriendModal
+              visible={modalSendToChat}
+              amigosList={amigosList}
+              onReenviar={reenviarAlChat}
+              onClose={() => setModalSendToChat(false)}
+            />
           </BlurView>
         </KeyboardAvoidingView>
       </Modal>
@@ -658,104 +535,10 @@ export default function BuscarTab() {
   );
 }
 
+// Se removieron los estilos que ahora pertenecen a ExploreHeader, ExploreListItem y ShareFriendModal
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#F2F2F7" },
-  headerGlass: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    zIndex: 100,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: "rgba(0,0,0,0.1)",
-  },
-  headerContent: {
-    paddingTop: Platform.OS === "ios" ? 80 : 45,
-    paddingHorizontal: 20,
-    paddingBottom: 15,
-  },
-  searchRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    marginBottom: 15,
-  },
-  searchBar: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "rgba(0,0,0,0.05)",
-    borderRadius: 25,
-    paddingHorizontal: 12,
-    height: 45,
-  },
-  searchInput: { flex: 1, fontSize: 14, fontWeight: "500" },
-  reloadBtnInline: {
-    backgroundColor: "rgba(255,255,255,0.7)",
-    width: 45,
-    height: 45,
-    borderRadius: 25,
-    justifyContent: "center",
-    alignItems: "center",
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(0,0,0,0.1)",
-  },
-  filterContainer: { marginTop: 5 },
-  filterScroll: { gap: 8, alignItems: "center" },
-  chip: {
-    paddingHorizontal: 15,
-    paddingVertical: 8,
-    borderRadius: 15,
-    backgroundColor: "rgba(255,255,255,0.5)",
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(0,0,0,0.1)",
-  },
-  chipActive: { backgroundColor: "#000" },
-  chipText: { fontSize: 12, fontWeight: "700", color: "#8E8E93" },
-  chipTextActive: { color: "#FFF" },
   listContainer: { padding: 16, paddingBottom: 120 },
-  card: {
-    flexDirection: "row",
-    backgroundColor: "#fff",
-    borderRadius: 18,
-    marginBottom: 12,
-    padding: 12,
-    alignItems: "center",
-    shadowColor: "#000",
-    shadowOpacity: 0.04,
-    shadowRadius: 10,
-    elevation: 2,
-  },
-  thumbContainer: { position: "relative" },
-  thumb: {
-    width: 85,
-    height: 85,
-    borderRadius: 14,
-    backgroundColor: "#F1F3F5",
-  },
-  placeholderThumb: {
-    width: 85,
-    height: 85,
-    borderRadius: 14,
-    backgroundColor: "#F1F3F5",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  info: { flex: 1, marginLeft: 15, marginRight: 15, justifyContent: "center" },
-  authorBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    marginBottom: 4,
-  },
-  authorText: { fontSize: 10, color: "#8E8E93", fontWeight: "600" },
-  placeTitle: {
-    fontWeight: "800",
-    fontSize: 14,
-    color: "#1C1C1E",
-    marginBottom: 2,
-  },
-  tags: { color: "#007AFF", fontSize: 11, marginBottom: 6 },
   modalContent: {
     flex: 1,
     marginTop: 50,
@@ -785,7 +568,6 @@ const styles = StyleSheet.create({
   modalBody: { padding: 25 },
   modalTitle: { fontSize: 26, fontWeight: "900", marginBottom: 6 },
   modalDesc: { fontSize: 15, color: "#444", lineHeight: 22, marginBottom: 20 },
-
   actionButtonsRow: {
     flexDirection: "row",
     gap: 12,
@@ -813,7 +595,6 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   sendToChatBtnText: { color: "#007AFF", fontWeight: "800", fontSize: 14 },
-
   aiContainer: {
     backgroundColor: "rgba(0,122,255,0.05)",
     padding: 15,
@@ -877,50 +658,4 @@ const styles = StyleSheet.create({
   commentStarRow: { flexDirection: "row", alignItems: "center", gap: 3 },
   commentRatingText: { fontSize: 12, fontWeight: "700" },
   commentText: { fontSize: 14, color: "#333", lineHeight: 20 },
-  emptyText: {
-    color: "#8E8E93",
-    textAlign: "center",
-    marginTop: 10,
-    fontSize: 15,
-    paddingHorizontal: 20,
-  },
-
-  // Estilos del Modal Overlay
-  sendChatCard: { backgroundColor: "#FFF", borderRadius: 35, padding: 30 },
-  friendCardMini: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 15,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: "#E5E5EA",
-  },
-  friendAvatarMini: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    marginRight: 15,
-    backgroundColor: "#E5E5EA",
-  },
-  friendNameMini: {
-    flex: 1,
-    fontWeight: "800",
-    fontSize: 17,
-    color: "#1C1C1E",
-  },
-  sendIconMini: {
-    backgroundColor: "#007AFF",
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  cancelBtnFull: {
-    marginTop: 25,
-    padding: 18,
-    backgroundColor: "#F2F2F7",
-    borderRadius: 20,
-    alignItems: "center",
-  },
-  cancelBtnText: { fontWeight: "800", color: "#8E8E93", fontSize: 16 },
 });

@@ -2,12 +2,12 @@
   "expo": {
     "name": "Explora",
     "slug": "bitacora-geo",
+    "newArchEnabled": true,
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "bitacorageo",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.jorge.bitacorageo",
@@ -16,25 +16,6 @@
         "NSPhotoLibraryUsageDescription": "Esta app necesita acceder a tu galería para subir fotos de los lugares.",
         "NSLocationWhenInUseUsageDescription": "Esta aplicación requiere acceso a tu ubicación para mostrar tu posición en el mapa y guardar las notas georeferenciadas."
       }
-    },
-    "android": {
-      "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/images/android-icon-foreground.png",
-        "backgroundImage": "./assets/images/android-icon-background.png",
-        "monochromeImage": "./assets/images/android-icon-monochrome.png"
-      },
-      "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false,
-      "permissions": [
-        "android.permission.ACCESS_COARSE_LOCATION",
-        "android.permission.ACCESS_FINE_LOCATION",
-        "android.permission.RECORD_AUDIO",
-        "android.permission.ACCESS_COARSE_LOCATION",
-        "android.permission.ACCESS_FINE_LOCATION",
-        "android.permission.RECORD_AUDIO"
-      ],
-      "package": "com.jorge.bitacorageo"
     },
     "web": {
       "output": "server",
