@@ -1,18 +1,17 @@
 <div align="center">
-
 <img src="./assets/images/readme/Header.png" width=100%/>
-
 </div>
 
 ---
 
 <div align="center">
-
 <img src="./assets/images/readme/Presentacion.png" width=100%/>
 
 </div>
 
 ---
+
+## Introducción
 
 <div align="justify">
 
@@ -23,7 +22,7 @@ La plataforma integra funcionalidades modernas como:
 - Geolocalización GPS
 - Visualización interactiva en mapas
 - Registro multimedia de ubicaciones
-- Recomendaciones inteligentes impulsadas por IA
+- Reseñas, resumenes, edicion y analisis inteligente impulsado por IA
 - Chat en tiempo real
 - Grupos y comunidades
 - Feed social colaborativo
@@ -35,41 +34,174 @@ El objetivo principal de la aplicación es centralizar la experiencia de explora
 
 ---
 
-# 🚀 Propuesta de Valor
+## Propuesta de Valor
 
-Explora combina:
+<div align="justify">
 
-| Capacidad                   | Valor generado                         |
-| --------------------------- | -------------------------------------- |
-| Geolocalización inteligente | Descubrimiento contextual de lugares   |
-| Sistema social integrado    | Interacción comunitaria en tiempo real |
-| Registro multimedia         | Experiencias visuales enriquecidas     |
-| Arquitectura móvil moderna  | Fluidez y escalabilidad                |
-| Interfaz intuitiva          | Experiencia de usuario optimizada      |
+**Explora** redefine la forma en que interactuamos con nuestro entorno mediante la convergencia de **geolocalización inteligente** y un **sistema social integrado**, permitiendo un descubrimiento contextual de lugares con interacción comunitaria en tiempo real. Gracias a su capacidad de **registro multimedia**, los usuarios disfrutan de experiencias visuales enriquecidas bajo una **arquitectura móvil** moderna que garantiza fluidez, escalabilidad y una experiencia de usuario optimizada a través de una **interfaz intuitiva**.
+
+</div>
 
 ---
 
-# 🎯 Pitch Visual
+## Pitch Visual
 
-## Flujo Inicial de Usuario
-
-|                          1. Inicio y Exploración                          |                             2. Descubrimiento                              |                        3. Interacción Social                         |
-| :-----------------------------------------------------------------------: | :------------------------------------------------------------------------: | :------------------------------------------------------------------: |
-|        <img src="./assets/images/readme/step1.png" width="100%"/>         |         <img src="./assets/images/readme/step2.png" width="100%"/>         |      <img src="./assets/images/readme/step3.png" width="100%"/>      |
-| Interfaz moderna centrada en el descubrimiento visual y contenido social. | Navegación de ubicaciones mediante tarjetas dinámicas y datos geográficos. | Experiencia social integrada con chats, publicaciones y comunidades. |
+<div align="center">
+<img src="./assets/images/readme/VistasMapa.png" width=100%/>
+</div>
 
 <br />
 
-|                        4. Gestión Personalizada                         |                       5. Experiencia Geoespacial                        |
-| :---------------------------------------------------------------------: | :---------------------------------------------------------------------: |
-|       <img src="./assets/images/readme/step4.png" width="100%"/>        |       <img src="./assets/images/readme/step5.png" width="100%"/>        |
-| Guardado de ubicaciones favoritas y administración de contenido propio. | Mapas interactivos para visualización espacial y navegación contextual. |
+<div align="justify">
+  <h3> Vista Mapa: Flujo de Registro Inteligente</h2>
+  <p>
+    El núcleo de <strong>Explora</strong> es la capacidad de transformar coordenadas geográficas en historias visuales con el mínimo esfuerzo del usuario. A continuación, se detalla el flujo de trabajo integrado en la vista de mapa:
+  </p>
 
-# 🧠 Arquitectura Funcional del Sistema
+  <h4>1. Ubicación y Contexto</h4>
+  <p>
+    El usuario interactúa con un mapa de alta precisión (estética minimalista) para identificar su posición actual o un punto de interés. Al seleccionar una ubicación, el sistema activa el botón dinámico de <b>"Registrar Ubicación"</b>, capturando las coordenadas exactas de forma automática.
+  </p>
 
-# ⚙️ Características y Capacidades
+  <h4>2. Formulario Dinámico con BlurView</h4>
+  <p>
+    Al iniciar el registro, se despliega una interfaz de usuario optimizada mediante una tarjeta con efecto de desenfoque (<i>glassmorphism</i>). Este panel organiza la información técnica y los campos creativos:
+  </p>
+  <ul>
+    <li><strong>Nombre y Descripción:</strong> Espacios para la personalización del usuario.</li>
+    <li><strong>Gestión Multimedia:</strong> Selector de imágenes para documentar la experiencia.</li>
+    <li><strong>Control de Privacidad:</strong> Interruptor nativo para decidir la visibilidad de la publicación.</li>
+  </ul>
 
-## 📍 Sistema de Geolocalización GPS
+  <h4>3. Autocompletado con IA (Multimodal)</h4>
+  <p>
+    Mediante la integración con <b>Gemini AI</b>, el sistema ofrece un análisis automático de las fotografías:
+  </p>
+  <ul>
+    <li><strong>Visión Computacional:</strong> Identificación de elementos clave (paisajes, flora, monumentos).</li>
+    <li><strong>Generación de Contenido:</strong> Redacción automática de nombres creativos y descripciones detalladas.</li>
+    <li><strong>Clasificación Inteligente:</strong> Generación de <i>#Hashtags</i> para facilitar la búsqueda y escalabilidad.</li>
+  </ul>
+
+  <h4>4. Publicación y Sincronización</h4>
+  <p>
+    Una vez validado, el registro se sincroniza con <b>Firebase Firestore</b>, apareciendo instantáneamente en el feed social y en la bitácora personal, garantizando fluidez bajo una arquitectura móvil moderna.
+  </p>
+</div>
+
+<br />
+
+<div align="center">
+<img src="./assets/images/readme/VistasExplorar.png" width=100%/>
+</div>
+
+<br />
+
+<div align="justify">
+  <h3>Vista Explorar: Descubrimiento y Conexión Comunitaria</h3>
+  <p>
+    La sección <strong>Explorar</strong> actúa como el motor de descubrimiento de la plataforma, permitiendo a los usuarios conectar con experiencias compartidas por la comunidad a través de herramientas de búsqueda avanzada y análisis semántico. A continuación, se detalla el flujo de exploración:
+  </p>
+
+  <h4>1. Búsqueda y Filtrado Inteligente</h4>
+  <p>
+    La interfaz presenta un buscador global optimizado para nombres, categorías o etiquetas. Se implementa un sistema de <b>filtros rápidos (Chips)</b> que permiten segmentar resultados de forma instantánea: desde ubicaciones "Cerca de mí" hasta categorías específicas como #Naturaleza o #Cascada, facilitando una navegación fluida entre miles de registros.
+  </p>
+
+  <h4>2. Visualización de Resultados Dinámica</h4>
+  <p>
+    Los resultados se despliegan en una lista de tarjetas interactivas que priorizan el contenido visual. Cada tarjeta ofrece un resumen ejecutivo del lugar: nombre del autor, imagen destacada y hashtags principales. Esta arquitectura permite al usuario evaluar rápidamente los puntos de interés antes de profundizar en los detalles.
+  </p>
+
+  <h4>3. Análisis Semántico con IA (Gemini AI)</h4>
+  <p>
+    Al seleccionar un lugar, <b>Explora</b> utiliza Inteligencia Artificial para procesar el sentimiento colectivo. La funcionalidad <b>"¿Qué dice la comunidad? (IA)"</b> analiza todas las reseñas de los usuarios para generar un resumen inteligente, extrayendo los puntos positivos y las advertencias relevantes, ahorrando al usuario la lectura de decenas de comentarios individuales.
+  </p>
+
+  <h4>4. Interacción y Reseñas Multimodales</h4>
+  <p>
+    La vista detallada permite al usuario iniciar navegación directa (botón "Ir") o compartir el hallazgo con amigos. El sistema de <b>Reseñas</b> permite una interacción bidireccional donde los usuarios califican con estrellas y texto, contando además con asistencia de IA para <b>"Sugerir opinión"</b>, optimizando la participación social dentro del ecosistema.
+  </p>
+</div>
+
+<br />
+
+<div align="center">
+<img src="./assets/images/readme/VistasGuardados.png" width=100%/>
+</div>
+<br />
+
+<div align="justify">
+  <h3>Vista Guardados: Gestión y Organización Personal</h3>
+  <p>
+    La sección <strong>Guardados</strong> constituye la bitácora personal del usuario, ofreciendo una interfaz robusta para administrar el historial de exploraciones, personalizar la privacidad y organizar los hallazgos mediante herramientas de gestión avanzada.
+  </p>
+
+  <h4>1. Organización y Filtrado de Bitácora</h4>
+  <p>
+    El usuario dispone de una biblioteca centralizada con todas sus ubicaciones registradas. Se implementa un sistema de <b>filtros inteligentes (Recientes, Favoritos, Nombre, Zona)</b> que permite localizar entradas específicas de forma ágil, permitiendo al explorador tener un control total sobre su patrimonio de viajes.
+  </p>
+
+  <h4>2. Acceso Rápido y Menú Contextual</h4>
+  <p>
+    Mediante una pulsación prolongada (<i>Long Press</i>), se despliega un menú de <b>Opciones Rápidas</b> con efecto de desenfoque. Desde aquí, el usuario puede alternar instantáneamente entre estados de "Destacado", modificar la visibilidad (Público/Privado), enviar el lugar a un amigo o realizar una exportación compartida externa.
+  </p>
+
+  <h4>3. Interacciones por Deslizamiento (Swipe Actions)</h4>
+  <p>
+    Optimizando la experiencia en dispositivos móviles, se han integrado <b>Swipe Actions</b> intuitivos en cada tarjeta. Deslizar hacia la izquierda revela botones de acción directa: un acceso rápido para <b>Editar</b> los detalles del lugar y un botón de <b>Eliminar</b> con confirmación, permitiendo una limpieza de bitácora rápida y fluida.
+  </p>
+
+  <h4>4. Edición Avanzada con Soporte de IA</h4>
+  <p>
+    La vista de edición permite modificar la galería de fotos y actualizar la narrativa de la entrada. Se mantiene la integración con <b>Gemini AI</b> mediante el botón "Auto-completar", permitiendo al usuario regenerar o pulir la descripción y hashtags del lugar basándose en las imágenes actuales, asegurando que cada registro mantenga una calidad profesional.
+  </p>
+</div>
+
+<br />
+
+<div align="center">
+<img src="./assets/images/readme/VistasSocial.png" width=100%/>
+</div>
+
+<br />
+
+<div align="justify">
+  <h3>Vista Social: Ecosistema Colaborativo y Comunidad</h3>
+  <p>
+    La sección <strong>Social</strong> constituye el núcleo de interacción de la plataforma. Está diseñada bajo una arquitectura de pestañas dinámicas que facilita la gestión de grupos, la comunicación directa y la personalización de la identidad digital del explorador.
+  </p>
+
+  <h4>1. Feed Comunitario e Interacción</h4>
+  <p>
+    El <b>Feed</b> presenta una línea de tiempo fluida con las recomendaciones de la comunidad. Cada publicación integra un motor de interacción social que permite reaccionar, comentar y compartir. Se incluye un acceso directo de <b>Geolocalización</b> ("Ir a ubicación") que vincula el contenido social con el mapa interactivo, cerrando el ciclo de descubrimiento.
+  </p>
+
+  <h4>2. Gestión de Grupos y Comunidades</h4>
+  <p>
+    El módulo de <b>Grupos</b> permite a los usuarios unirse a comunidades existentes o fundar nuevas. Se implementa un sistema de validación donde el botón de acción cambia dinámicamente de "Unirse" a "Abrir" según el estado de pertenencia. Cada comunidad cuenta con un identificador único (<i>Cód.</i>) para facilitar el crecimiento orgánico mediante invitaciones directas.
+  </p>
+
+  <h4>3. Centro de Mensajería y Conexiones</h4>
+  <p>
+    La pestaña de <b>Chat</b> centraliza la comunicación privada y grupal. Se organiza en dos niveles: una fila superior de <b>Acceso Rápido a Grupos</b> para una navegación ágil y una lista vertical de <b>Conexiones Personales</b>. La interfaz utiliza indicadores visuales de estado y previsualizaciones de mensajes para mejorar la retención y el engagement.
+  </p>
+
+  <h4>4. Identidad Visual y Perfil de Usuario</h4>
+  <p>
+    La sección de <b>Perfil</b> ofrece un panel de configuración estética y técnica. Los usuarios pueden personalizar su avatar, banner de encabezado y biografía. Además, se integra un generador de <b>Código de Amigo Único</b> con función de copiado rápido, permitiendo que la red social se expanda mediante la vinculación directa entre exploradores.
+  </p>
+</div>
+
+<br />
+
+---
+
+## Arquitectura Funcional del Sistema
+
+# Características y Capacidades
+
+## Sistema de Geolocalización GPS
 
 ### Capacidades
 
