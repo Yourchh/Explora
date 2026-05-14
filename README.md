@@ -1,15 +1,13 @@
+---
 <div align="center">
 <img src="./assets/images/readme/Header.png" width=100%/>
 </div>
-
 ---
 
 <div align="center">
 <img src="./assets/images/readme/Presentacion.png" width=100%/>
 
 </div>
-
----
 
 ## Introducción
 
@@ -36,6 +34,8 @@ El objetivo principal de la aplicación es centralizar la experiencia de explora
 
 ## Propuesta de Valor
 
+---
+
 <div align="justify">
 
 **Explora** redefine la forma en que interactuamos con nuestro entorno mediante la convergencia de **geolocalización inteligente** y un **sistema social integrado**, permitiendo un descubrimiento contextual de lugares con interacción comunitaria en tiempo real. Gracias a su capacidad de **registro multimedia**, los usuarios disfrutan de experiencias visuales enriquecidas bajo una **arquitectura móvil** moderna que garantiza fluidez, escalabilidad y una experiencia de usuario optimizada a través de una **interfaz intuitiva**.
@@ -45,6 +45,8 @@ El objetivo principal de la aplicación es centralizar la experiencia de explora
 ---
 
 ## Pitch Visual
+
+---
 
 <div align="center">
 <img src="./assets/images/readme/VistasMapa.png" width=100%/>
@@ -91,6 +93,10 @@ El objetivo principal de la aplicación es centralizar la experiencia de explora
 
 <br />
 
+---
+
+<br />
+
 <div align="center">
 <img src="./assets/images/readme/VistasExplorar.png" width=100%/>
 </div>
@@ -123,6 +129,10 @@ El objetivo principal de la aplicación es centralizar la experiencia de explora
     La vista detallada permite al usuario iniciar navegación directa (botón "Ir") o compartir el hallazgo con amigos. El sistema de <b>Reseñas</b> permite una interacción bidireccional donde los usuarios califican con estrellas y texto, contando además con asistencia de IA para <b>"Sugerir opinión"</b>, optimizando la participación social dentro del ecosistema.
   </p>
 </div>
+
+<br />
+
+---
 
 <br />
 
@@ -199,7 +209,7 @@ El objetivo principal de la aplicación es centralizar la experiencia de explora
 
 ## Arquitectura Funcional del Sistema
 
-# Características y Capacidades
+## Características y Capacidades
 
 ## Sistema de Geolocalización GPS
 
