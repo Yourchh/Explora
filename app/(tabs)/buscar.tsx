@@ -334,7 +334,7 @@ export default function BuscarTab() {
                     style={[
                       styles.modalImg,
                       {
-                        backgroundColor: "#F1F3F5",
+                        backgroundColor: "rgba(255,255,255,0.9)",
                         justifyContent: "center",
                         alignItems: "center",
                       },
@@ -540,6 +540,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#F2F2F7" },
   listContainer: { padding: 16, paddingBottom: 120 },
   modalContent: {
+    backgroundColor: "rgba(255, 255, 255, 0.5)",
     flex: 1,
     marginTop: 50,
     borderTopLeftRadius: 40,

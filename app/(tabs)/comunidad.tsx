@@ -2,6 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { BlurView } from "expo-blur";
 import * as ImagePicker from "expo-image-picker";
+import { updateEmail, updatePassword } from "firebase/auth";
 import {
   addDoc,
   arrayRemove,
@@ -71,6 +72,8 @@ export default function SocialTab() {
     portada: "https://via.placeholder.com/800x400", // 💡 Asegúrate que esté aquí
     friendCode: "",
     friends: [] as string[],
+    email: "",
+    password: "",
   });
 
   const [guardandoPerfil, setGuardandoPerfil] = useState(false);
@@ -150,6 +153,8 @@ export default function SocialTab() {
           portada: data.portada || "https://via.placeholder.com/800x400", // 💡 Agregado
           friendCode: data.friendCode || "",
           friends: data.friends || [],
+          email: data.email || "",
+          password: data.password || "",
         });
 
         if (data.friends && data.friends.length > 0) {
@@ -183,6 +188,43 @@ export default function SocialTab() {
     });
 
     return () => unsubUser();
+  }, []);
+
+  useEffect(() => {
+    if (!auth.currentUser) return;
+
+    const userRef = doc(db, "users", auth.currentUser.uid);
+
+    const unsubscribe = onSnapshot(
+      userRef,
+      (docSnap) => {
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          setUserData({
+            username: data.username || "Explorador",
+            bio: data.bio || "",
+            frase: data.frase || "",
+            intereses: data.intereses || [],
+            foto: data.foto || "https://via.placeholder.com/150",
+            portada: data.portada || "https://via.placeholder.com/800x400",
+            friendCode: data.friendCode || "",
+            friends: data.friends || [],
+            email: data.email || "",
+            password: data.password || "",
+          });
+        }
+      },
+      (error) => {
+        // 💡 Solución definitiva: Interceptamos el error de permisos
+        if (error.code === "permission-denied") {
+          console.log("Sesión finalizada: El listener se cerró correctamente.");
+        } else {
+          console.error("Error inesperado en Firestore:", error);
+        }
+      },
+    );
+
+    return () => unsubscribe();
   }, []);
 
   const cargarAmigos = async (friendsUids: string[]) => {
@@ -226,6 +268,16 @@ export default function SocialTab() {
 
     return () => unsubscribers.forEach((unsub) => unsub());
   }, [amigosList]);
+
+  useEffect(() => {
+    if (!auth.currentUser) return;
+
+    // Extraemos el correo directamente de Firebase Auth
+    setUserData((prev) => ({
+      ...prev,
+      email: auth.currentUser?.email || "", // El correo viene de la sesión activa
+    }));
+  }, []);
 
   useEffect(() => {
     const qPosts = query(
@@ -437,6 +489,87 @@ export default function SocialTab() {
     } finally {
       setGuardandoPerfil(false);
     }
+  };
+
+  // --- SEGURIDAD Y CUENTA ---
+  const actualizarCuentaSeguridad = async () => {
+    const user = auth.currentUser;
+    if (!user) return;
+
+    if (!userData.email.trim()) {
+      return Alert.alert("Error", "El correo no puede estar vacío.");
+    }
+
+    Alert.alert(
+      "Confirmar Cambios",
+      "¿Estás seguro de que deseas actualizar tus credenciales de acceso?",
+      [
+        { text: "Cancelar", style: "cancel" },
+        {
+          text: "Actualizar",
+          onPress: async () => {
+            setGuardandoPerfil(true);
+            try {
+              // 1. Cambio de Email si es distinto
+              if (userData.email !== user.email) {
+                await updateEmail(user, userData.email);
+              }
+              // 2. Cambio de Password si se ingresó algo
+              if (userData.password && userData.password.length >= 6) {
+                await updatePassword(user, userData.password);
+                setUserData((prev) => ({ ...prev, password: "" })); // Limpiar por seguridad
+              }
+              Alert.alert(
+                "Éxito",
+                "Tus datos de seguridad han sido actualizados.",
+              );
+            } catch (error: any) {
+              if (error.code === "auth/requires-recent-login") {
+                Alert.alert(
+                  "Re-autenticación necesaria",
+                  "Por seguridad, debes cerrar sesión e ingresar de nuevo para realizar estos cambios.",
+                );
+              } else {
+                Alert.alert("Error", error.message);
+              }
+            } finally {
+              setGuardandoPerfil(false);
+            }
+          },
+        },
+      ],
+    );
+  };
+
+  const eliminarCuentaDefinitiva = () => {
+    Alert.alert(
+      "⚠️ ELIMINAR CUENTA",
+      "¿Estás completamente seguro? Esta acción es irreversible y perderás todos tus datos, amigos y grupos.",
+      [
+        { text: "Cancelar", style: "cancel" },
+        {
+          text: "ELIMINAR MI CUENTA",
+          style: "destructive",
+          onPress: async () => {
+            const user = auth.currentUser;
+            if (!user) return;
+            try {
+              // Opcional: Aquí podrías borrar el documento de Firestore antes del Auth
+              await deleteDoc(doc(db, "users", user.uid));
+              await user.delete();
+              // El listener de Auth cerrará la sesión automáticamente
+            } catch (error: any) {
+              if (error.code === "auth/requires-recent-login") {
+                Alert.alert(
+                  "Aviso",
+                  "Cierra sesión e ingresa de nuevo para confirmar esta acción.",
+                );
+              }
+            }
+          },
+        },
+      ],
+    );
   };
 
   const seleccionarFotoPerfil = async () => {
@@ -1699,7 +1832,7 @@ export default function SocialTab() {
               showsVerticalScrollIndicator={false}
             >
               {/* SECCIÓN PORTADA Y FOTO */}
-              <View style={{ height: 260, marginBottom: 20 }}>
+              <View style={{ height: 260, marginBottom: 20, marginTop: 30 }}>
                 <TouchableOpacity
                   onPress={seleccionarPortada}
                   activeOpacity={0.9}
@@ -1756,6 +1889,27 @@ export default function SocialTab() {
               <View style={{ paddingHorizontal: 20, marginTop: 25 }}>
                 <Text style={styles.formLabel}>Ajustes de Perfil</Text>
                 <View style={styles.formContainer}>
+                  {/* CAMPO: NOMBRE */}
+                  <View style={styles.formRow}>
+                    <Ionicons
+                      name="person-outline"
+                      size={20}
+                      color="#8E8E93"
+                      style={styles.formIcon}
+                    />
+                    <TextInput
+                      style={styles.formInput}
+                      placeholder="Nombre completo"
+                      value={userData.username} // Asegúrate de que 'nombre' exista en tu estado inicial
+                      onChangeText={(t) =>
+                        setUserData({ ...userData, username: t })
+                      }
+                    />
+                  </View>
+
+                  <View style={styles.formDivider} />
+
+                  {/* CAMPO: FRASE (Existente) */}
                   <View style={styles.formRow}>
                     <Ionicons
                       name="chatbubble-outline"
@@ -1772,7 +1926,10 @@ export default function SocialTab() {
                       }
                     />
                   </View>
+
                   <View style={styles.formDivider} />
+
+                  {/* CAMPO: BIO (Existente) */}
                   <View style={[styles.formRow, { alignItems: "flex-start" }]}>
                     <Ionicons
                       name="information-circle-outline"
@@ -1830,17 +1987,145 @@ export default function SocialTab() {
                 </View>
 
                 <TouchableOpacity
-                  style={styles.saveProfileBtn}
+                  style={[styles.saveProfileBtn, { marginTop: 20 }]}
                   onPress={guardarPerfil}
                 >
                   <Text style={styles.saveProfileText}>Guardar Perfil</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
-                  style={styles.logoutBtn}
+                  style={[styles.logoutBtn, { marginTop: 20 }]}
                   onPress={() => auth.signOut()}
                 >
                   <Text style={styles.logoutBtnText}>Cerrar Sesión Segura</Text>
+                </TouchableOpacity>
+
+                {/* SECCIÓN: CUENTA Y SEGURIDAD */}
+                <Text style={[styles.formLabel, { marginTop: 25 }]}>
+                  Cuenta y Seguridad
+                </Text>
+
+                <View style={styles.formContainer}>
+                  {/* CORREO ELECTRÓNICO */}
+                  <View style={styles.formRow}>
+                    <Ionicons
+                      name="mail-outline"
+                      size={20}
+                      color="#8E8E93"
+                      style={styles.formIcon}
+                    />
+                    <View style={{ flex: 1 }}>
+                      <Text
+                        style={{
+                          fontSize: 10,
+                          color: "#007AFF",
+                          fontWeight: "700",
+                          marginTop: 8,
+                        }}
+                      >
+                        CORREO ACTUAL
+                      </Text>
+                      <TextInput
+                        style={[
+                          styles.formInput,
+                          { paddingTop: 2, paddingBottom: 12 },
+                        ]}
+                        placeholder="nuevo@correo.com"
+                        keyboardType="email-address"
+                        autoCapitalize="none"
+                        value={userData.email}
+                        onChangeText={(t) =>
+                          setUserData({ ...userData, email: t })
+                        }
+                      />
+                    </View>
+                  </View>
+
+                  <View style={styles.formDivider} />
+
+                  {/* CONTRASEÑA */}
+                  <View style={styles.formRow}>
+                    <Ionicons
+                      name="lock-closed-outline"
+                      size={20}
+                      color="#8E8E93"
+                      style={styles.formIcon}
+                    />
+                    <View style={{ flex: 1 }}>
+                      <Text
+                        style={{
+                          fontSize: 10,
+                          color: "#8E8E93",
+                          fontWeight: "700",
+                          marginTop: 8,
+                        }}
+                      >
+                        NUEVA CONTRASEÑA
+                      </Text>
+                      <TextInput
+                        style={[
+                          styles.formInput,
+                          { paddingTop: 2, paddingBottom: 12 },
+                        ]}
+                        placeholder="••••••••"
+                        secureTextEntry
+                        value={userData.password}
+                        onChangeText={(t) =>
+                          setUserData({ ...userData, password: t })
+                        }
+                      />
+                    </View>
+                  </View>
+                </View>
+
+                <Text
+                  style={{
+                    fontSize: 12,
+                    color: "#8E8E93",
+                    marginHorizontal: 20,
+                    marginTop: 10,
+                  }}
+                >
+                  {
+                    'Para cambiar el correo o la clave, edita los campos arriba y presiona "Actualizar Seguridad".'
+                  }
+                </Text>
+
+                {/* BOTÓN ACTUALIZAR */}
+                <TouchableOpacity
+                  style={[
+                    styles.saveProfileBtn,
+                    { marginTop: 15, backgroundColor: "#007AFF" },
+                  ]}
+                  onPress={actualizarCuentaSeguridad}
+                  disabled={guardandoPerfil}
+                >
+                  {guardandoPerfil ? (
+                    <ActivityIndicator color="#FFF" />
+                  ) : (
+                    <Text style={styles.saveProfileText}>
+                      Actualizar Seguridad
+                    </Text>
+                  )}
+                </TouchableOpacity>
+
+                {/* BOTÓN ELIMINAR CUENTA */}
+                <TouchableOpacity
+                  style={[styles.deleteBtn, { marginTop: 15 }]}
+                  onPress={eliminarCuentaDefinitiva}
+                >
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      gap: 8,
+                    }}
+                  >
+                    <Ionicons name="trash-outline" size={20} color="#FFF" />
+                    <Text style={styles.deleteBtnText}>
+                      Eliminar mi cuenta definitivamente
+                    </Text>
+                  </View>
                 </TouchableOpacity>
               </View>
             </ScrollView>
@@ -3370,8 +3655,26 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   saveProfileText: { color: "#FFF", fontWeight: "900", fontSize: 17 },
-  logoutBtn: { alignItems: "center", marginTop: 20, padding: 10 },
+  logoutBtn: {
+    alignItems: "center",
+    marginTop: 10,
+    padding: 15,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "#FF3B30",
+    backgroundColor: "#FFF",
+  },
   logoutBtnText: { color: "#FF3B30", fontWeight: "800", fontSize: 16 },
+  deleteBtn: {
+    alignItems: "center",
+    marginTop: 10,
+    padding: 15,
+    borderRadius: 20,
+    borderColor: "#FF3B30",
+    borderWidth: 1,
+    backgroundColor: "#FF3B30",
+  },
+  deleteBtnText: { color: "#ffffff", fontWeight: "800", fontSize: 16 },
 
   sectionTitle: {
     fontSize: 16,
@@ -3400,6 +3703,8 @@ const styles = StyleSheet.create({
     width: 60,
     height: 60,
     borderRadius: 30,
+    borderColor: "#E5E5EA",
+    borderWidth: 2,
     backgroundColor: "#E5E5EA",
   },
   friendName: { fontSize: 17, fontWeight: "900", color: "#1C1C1E" },
@@ -3707,7 +4012,8 @@ const styles = StyleSheet.create({
   },
   portadaImg: {
     width: "100%",
-    height: 200,
+    height: 220,
+    borderRadius: 20,
     backgroundColor: "#E5E5EA",
   },
   editPortadaBadge: {

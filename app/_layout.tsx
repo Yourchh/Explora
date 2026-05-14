@@ -1,8 +1,10 @@
 import { Stack, useRouter, useSegments } from "expo-router";
 import { onAuthStateChanged } from "firebase/auth";
 import { useEffect, useState } from "react";
-import { ActivityIndicator, View } from "react-native";
+import { ActivityIndicator, LogBox, View } from "react-native";
 import { auth } from "../firebaseConfig";
+
+LogBox.ignoreAllLogs();
 
 export default function RootLayout() {
   const [user, setUser] = useState<any>(null);
