@@ -159,16 +159,32 @@ export default function MapaTab() {
     indexReemplazo?: number,
   ) => {
     try {
+      // 1. Pedir permisos si es cámara
+      if (desdeCamara) {
+        const { status } = await ImagePicker.requestCameraPermissionsAsync();
+        if (status !== "granted") {
+          Alert.alert(
+            "Permiso denegado",
+            "Necesitamos acceso a la cámara para tomar fotos.",
+          );
+          return; // Detenemos la ejecución si no hay permiso
+        }
+      }
+
+      // 2. Configurar opciones (solucionando el WARN de MediaType)
       const options: ImagePicker.ImagePickerOptions = {
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: ["images"], // Forma moderna en Expo 50+
         allowsEditing: true,
         aspect: [4, 3],
         quality: 0.5,
       };
+
+      // 3. Lanzar la cámara o galería
       const result = desdeCamara
         ? await ImagePicker.launchCameraAsync(options)
         : await ImagePicker.launchImageLibraryAsync(options);
 
+      // 4. Guardar resultado
       if (!result.canceled && result.assets) {
         if (indexReemplazo !== undefined) {
           const nuevas = [...imagenes];
@@ -179,7 +195,7 @@ export default function MapaTab() {
         }
       }
     } catch (e) {
-      console.log(e);
+      console.log("Error al seleccionar imagen:", e);
     }
   };
 
