@@ -1,35 +1,37 @@
 <div align="center">
 
-# 🌍 Explora
-
-### Plataforma móvil de exploración social basada en geolocalización, comunidad y descubrimiento de lugares
-
-<img src="./assets/images/readme/step1.png" width="220"/>
-<img src="./assets/images/readme/step2.png" width="220"/>
-<img src="./assets/images/readme/step3.png" width="220"/>
+<img src="./assets/images/readme/Header.png" width=100%/>
 
 </div>
 
 ---
 
-# 📌 Descripción General
+<div align="center">
 
-## Introducción
+<img src="./assets/images/readme/Presentacion.png" width=100%/>
 
-**Explora** es una aplicación móvil desarrollada para transformar la manera en que los usuarios descubren, guardan y comparten lugares de interés mediante una experiencia social inmersiva basada en geolocalización en tiempo real.
+</div>
+
+---
+
+<div align="justify">
+
+**Explora** es una aplicación móvil desarrollada para transformar la manera en que los usuarios descubren, guardan y comparten lugares de interés mediante una experiencia social inmersiva basada en geolocalización en tiempo real e inteligencia artificial.
 
 La plataforma integra funcionalidades modernas como:
 
-- 📍 Geolocalización GPS
-- 🗺️ Visualización interactiva en mapas
-- 📸 Registro multimedia de ubicaciones
-- 💬 Chat en tiempo real
-- 👥 Grupos y comunidades
-- 🔔 Sistema de notificaciones
-- ❤️ Feed social colaborativo
-- 🔖 Sistema de guardados y favoritos
+- Geolocalización GPS
+- Visualización interactiva en mapas
+- Registro multimedia de ubicaciones
+- Recomendaciones inteligentes impulsadas por IA
+- Chat en tiempo real
+- Grupos y comunidades
+- Feed social colaborativo
+- Sistema de guardados y favoritos
 
-El objetivo principal de la aplicación es centralizar la experiencia de exploración urbana y social en un único ecosistema digital, permitiendo que los usuarios documenten experiencias, interactúen con comunidades y descubran contenido contextual basado en ubicación.
+El objetivo principal de la aplicación es centralizar la experiencia de exploración urbana y social en un único ecosistema digital, permitiendo que los usuarios documenten experiencias, interactúen con comunidades y descubran contenido contextual basado en ubicación y asistido por IA.
+
+</div>
 
 ---
 
@@ -51,45 +53,17 @@ Explora combina:
 
 ## Flujo Inicial de Usuario
 
-### 1. Inicio y exploración del ecosistema
+|                          1. Inicio y Exploración                          |                             2. Descubrimiento                              |                        3. Interacción Social                         |
+| :-----------------------------------------------------------------------: | :------------------------------------------------------------------------: | :------------------------------------------------------------------: |
+|        <img src="./assets/images/readme/step1.png" width="100%"/>         |         <img src="./assets/images/readme/step2.png" width="100%"/>         |      <img src="./assets/images/readme/step3.png" width="100%"/>      |
+| Interfaz moderna centrada en el descubrimiento visual y contenido social. | Navegación de ubicaciones mediante tarjetas dinámicas y datos geográficos. | Experiencia social integrada con chats, publicaciones y comunidades. |
 
-<img src="./assets/images/readme/step1.png" width="100%"/>
+<br />
 
-La aplicación presenta una interfaz moderna centrada en el descubrimiento visual de lugares y contenido social contextual.
-
----
-
-### 2. Descubrimiento de ubicaciones
-
-<img src="./assets/images/readme/step2.png" width="100%"/>
-
-Los usuarios pueden navegar por ubicaciones registradas mediante tarjetas dinámicas con información geográfica y visual.
-
----
-
-### 3. Sistema de interacción social
-
-<img src="./assets/images/readme/step3.png" width="100%"/>
-
-Explora incorpora una experiencia social integrada mediante chats, publicaciones y comunidades colaborativas.
-
----
-
-### 4. Gestión personalizada de contenido
-
-<img src="./assets/images/readme/step4.png" width="100%"/>
-
-La plataforma permite guardar ubicaciones favoritas y administrar contenido personalizado.
-
----
-
-### 5. Experiencia geoespacial avanzada
-
-<img src="./assets/images/readme/step5.png" width="100%"/>
-
-El sistema de mapas interactivos facilita la visualización espacial y navegación contextual de lugares registrados.
-
----
+|                        4. Gestión Personalizada                         |                       5. Experiencia Geoespacial                        |
+| :---------------------------------------------------------------------: | :---------------------------------------------------------------------: |
+|       <img src="./assets/images/readme/step4.png" width="100%"/>        |       <img src="./assets/images/readme/step5.png" width="100%"/>        |
+| Guardado de ubicaciones favoritas y administración de contenido propio. | Mapas interactivos para visualización espacial y navegación contextual. |
 
 # 🧠 Arquitectura Funcional del Sistema
 
