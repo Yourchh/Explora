@@ -296,96 +296,29 @@ Implementado para:
 
 # 🎬 Showcase y Demos
 
-# 📱 Vista Explorar
+## 📱 Demostración de la App
 
-https://github.com/user-attachments/assets/b0e5328b-190c-489c-a876-72e4d82a2619
+### 🔐 Acceso y Perfil
 
-### Flujo
-
-1. El usuario accede al feed de exploración
-2. El sistema obtiene ubicaciones disponibles
-3. Se renderizan tarjetas dinámicas
-4. El usuario interactúa con lugares y contenido
+|                                          Registro, Perfil y Login                                           |
+| :---------------------------------------------------------------------------------------------------------: |
+| <video src="https://github.com/user-attachments/assets/da0ef8be-6e39-41d3-a457-4b753eaa3261" width="250" /> |
 
 ---
 
-# 🔖 Vista Guardados
+### 🌍 Exploración y Mapa
 
-https://github.com/user-attachments/assets/d528b2ce-7640-4ff0-b60f-0200b0600ad1
-
-### Flujo
-
-1. El usuario guarda ubicaciones
-2. El sistema persiste información
-3. Se sincronizan favoritos
-4. El usuario consulta contenido guardado
+|                                               Vista Explorar                                                |                                               Vista Guardados                                               |                                                 Vista Mapa                                                  |
+| :---------------------------------------------------------------------------------------------------------: | :---------------------------------------------------------------------------------------------------------: | :---------------------------------------------------------------------------------------------------------: |
+| <video src="https://github.com/user-attachments/assets/b0e5328b-190c-489c-a876-72e4d82a2619" width="200" /> | <video src="https://github.com/user-attachments/assets/d528b2ce-7640-4ff0-b60f-0200b0600ad1" width="200" /> | <video src="https://github.com/user-attachments/assets/fbb26dad-3450-477a-a17d-e2f0c0834084" width="200" /> |
 
 ---
 
-# 🗺️ Vista Mapa
+### 💬 Sección Social
 
-https://github.com/user-attachments/assets/fbb26dad-3450-477a-a17d-e2f0c0834084
-
-### Flujo
-
-1. Se inicializa el GPS
-2. El sistema obtiene coordenadas
-3. Se renderiza el mapa interactivo
-4. Los lugares aparecen mediante marcadores
-
----
-
-# 🔐 Registro, Perfil y Login
-
-https://github.com/user-attachments/assets/da0ef8be-6e39-41d3-a457-4b753eaa3261
-
-### Flujo
-
-1. Registro de usuario
-2. Validación de credenciales
-3. Inicio de sesión seguro
-4. Acceso al perfil personalizado
-
----
-
-# 💬 Social Section — Chat
-
-https://github.com/user-attachments/assets/7420eef8-d7e4-4428-9fa8-b16ad14ad3b9
-
-### Flujo
-
-1. Apertura de conversación
-2. Envío de mensajes
-3. Sincronización en tiempo real
-4. Actualización instantánea de interfaz
-
----
-
-# 📰 Social Section — Feed
-
-https://github.com/user-attachments/assets/786773f0-1504-4055-830e-221ee79fa483
-
-### Flujo
-
-1. Publicación de contenido
-2. Renderizado dinámico del feed
-3. Interacción social
-4. Actualización colaborativa
-
----
-
-# 👥 Social Section — Grupos
-
-https://github.com/user-attachments/assets/907d5074-f896-4922-9e1e-22e24b964c2d
-
-### Flujo
-
-1. Creación de grupos
-2. Unión de usuarios
-3. Compartición de contenido
-4. Comunicación comunitaria
-
----
+|                                                Chat en Vivo                                                 |                                              Feed de Noticias                                               |                                             Grupos Comunitarios                                             |
+| :---------------------------------------------------------------------------------------------------------: | :---------------------------------------------------------------------------------------------------------: | :---------------------------------------------------------------------------------------------------------: |
+| <video src="https://github.com/user-attachments/assets/7420eef8-d7e4-4428-9fa8-b16ad14ad3b9" width="200" /> | <video src="https://github.com/user-attachments/assets/786773f0-1504-4055-830e-221ee79fa483" width="200" /> | <video src="https://github.com/user-attachments/assets/907d5074-f896-4922-9e1e-22e24b964c2d" width="200" /> |
 
 # 🧪 Especificaciones Técnicas
 
@@ -451,4 +384,3 @@ Explora/
 ├── firebase/
 └── types/
 ```
-
