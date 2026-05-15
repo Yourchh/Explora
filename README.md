@@ -501,9 +501,9 @@ Implementado para:
 
 ### Acceso y Perfil
 
-|                                          Registro, Perfil y Login                                           |
-| :---------------------------------------------------------------------------------------------------------: |
-| <video src="https://github.com/user-attachments/assets/da0ef8be-6e39-41d3-a457-4b753eaa3261" width="250" /> |
+|                                               Vista Login                                                |                                               Vista Registro                                               |                                                 Vista Acceso                                                  |
+| :---------------------------------------------------------------------------------------------------------: | :---------------------------------------------------------------------------------------------------------: | :---------------------------------------------------------------------------------------------------------: |
+| <img src="./assets/images/readme/login.png" width="200" /> | <img src="./assets/images/readme/register.png" width="200" /> | <video src="https://github.com/user-attachments/assets/da0ef8be-6e39-41d3-a457-4b753eaa3261" width="200" /> |
 
 ---
 
