@@ -12,8 +12,6 @@
 
 # Introducción
 
-<div align="justify">
-
 **Explora** es una aplicación móvil desarrollada para transformar la manera en que los usuarios descubren, guardan y comparten lugares de interés mediante una experiencia social inmersiva basada en geolocalización en tiempo real e inteligencia artificial.
 
 La plataforma integra funcionalidades modernas como:
@@ -29,17 +27,11 @@ La plataforma integra funcionalidades modernas como:
 
 El objetivo principal de la aplicación es centralizar la experiencia de exploración urbana y social en un único ecosistema digital, permitiendo que los usuarios documenten experiencias, interactúen con comunidades y descubran contenido contextual basado en ubicación y asistido por IA.
 
-</div>
-
 ---
 
 # Propuesta de Valor
 
-<div align="justify">
-
 **Explora** redefine la forma en que interactuamos con nuestro entorno mediante la convergencia de **geolocalización inteligente** y un **sistema social integrado**, permitiendo un descubrimiento contextual de lugares con interacción comunitaria en tiempo real. Gracias a su capacidad de **registro multimedia**, los usuarios disfrutan de experiencias visuales enriquecidas bajo una **arquitectura móvil** moderna que garantiza fluidez, escalabilidad y una experiencia de usuario optimizada a través de una **interfaz intuitiva**.
-
-</div>
 
 ---
 
@@ -51,7 +43,6 @@ El objetivo principal de la aplicación es centralizar la experiencia de explora
 
 <br />
 
-<div align="justify">
   <h2> Vista Mapa: Flujo de Registro Inteligente</h2>
   <p>
     El núcleo de <strong>Explora</strong> es la capacidad de transformar coordenadas geográficas en historias visuales con el mínimo esfuerzo del usuario. A continuación, se detalla el flujo de trabajo integrado en la vista de mapa:
@@ -86,7 +77,6 @@ El objetivo principal de la aplicación es centralizar la experiencia de explora
   <p>
     Una vez validado, el registro se sincroniza con <b>Firebase Firestore</b>, apareciendo instantáneamente en el feed social y en la bitácora personal, garantizando fluidez bajo una arquitectura móvil moderna.
   </p>
-</div>
 
 <br />
 
@@ -96,7 +86,6 @@ El objetivo principal de la aplicación es centralizar la experiencia de explora
 
 <br />
 
-<div align="justify">
   <h2>Vista Explorar: Descubrimiento y Conexión Comunitaria</h2>
   <p>
     La sección <strong>Explorar</strong> actúa como el motor de descubrimiento de la plataforma, permitiendo a los usuarios conectar con experiencias compartidas por la comunidad a través de herramientas de búsqueda avanzada y análisis semántico. A continuación, se detalla el flujo de exploración:
@@ -121,7 +110,6 @@ El objetivo principal de la aplicación es centralizar la experiencia de explora
   <p>
     La vista detallada permite al usuario iniciar navegación directa (botón "Ir") o compartir el hallazgo con amigos. El sistema de <b>Reseñas</b> permite una interacción bidireccional donde los usuarios califican con estrellas y texto, contando además con asistencia de IA para <b>"Sugerir opinión"</b>, optimizando la participación social dentro del ecosistema.
   </p>
-</div>
 
 <br />
 
@@ -130,7 +118,6 @@ El objetivo principal de la aplicación es centralizar la experiencia de explora
 </div>
 <br />
 
-<div align="justify">
   <h2>Vista Guardados: Gestión y Organización Personal</h2>
   <p>
     La sección <strong>Guardados</strong> constituye la bitácora personal del usuario, ofreciendo una interfaz robusta para administrar el historial de exploraciones, personalizar la privacidad y organizar los hallazgos mediante herramientas de gestión avanzada.
@@ -155,7 +142,6 @@ El objetivo principal de la aplicación es centralizar la experiencia de explora
   <p>
     La vista de edición permite modificar la galería de fotos y actualizar la narrativa de la entrada. Se mantiene la integración con <b>Gemini AI</b> mediante el botón "Auto-completar", permitiendo al usuario regenerar o pulir la descripción y hashtags del lugar basándose en las imágenes actuales, asegurando que cada registro mantenga una calidad profesional.
   </p>
-</div>
 
 <br />
 
@@ -165,7 +151,6 @@ El objetivo principal de la aplicación es centralizar la experiencia de explora
 
 <br />
 
-<div align="justify">
   <h2>Vista Social: Ecosistema Colaborativo y Comunidad</h2>
   <p>
     La sección <strong>Social</strong> constituye el núcleo de interacción de la plataforma. Está diseñada bajo una arquitectura de pestañas dinámicas que facilita la gestión de grupos, la comunicación directa y la personalización de la identidad digital del explorador.
@@ -190,7 +175,6 @@ El objetivo principal de la aplicación es centralizar la experiencia de explora
   <p>
     La sección de <b>Perfil</b> ofrece un panel de configuración estética y técnica. Los usuarios pueden personalizar su avatar, banner de encabezado y biografía. Además, se integra un generador de <b>Código de Amigo Único</b> con función de copiado rápido, permitiendo que la red social se expanda mediante la vinculación directa entre exploradores.
   </p>
-</div>
 
 <br />
 
@@ -200,7 +184,6 @@ El objetivo principal de la aplicación es centralizar la experiencia de explora
 
 <br />
 
-<div align="justify">
   <p>
     La arquitectura de <strong>Explora</strong> está diseñada bajo un modelo de <b>Capas de Servicios Coordinados asíncronamente</b>. Este enfoque garantiza la fluidez de la interfaz de usuario al desplazar los procesos de cómputo intensivo (como la inferencia de IA) fuera del hilo principal.
   </p>
@@ -231,7 +214,6 @@ El objetivo principal de la aplicación es centralizar la experiencia de explora
     <img src="./assets/images/readme/Flujo.png" width="100%" alt="Pipeline de Procesamiento e Inferencia Multimodal" />
     <p><i>Figura: Pipeline de Procesamiento e Inferencia Multimodal</i></p>
   </div>
-</div>
 
 <br />
 
@@ -710,7 +692,7 @@ Escanea el código QR generado con la aplicación Expo Go para visualizar la app
       </tr>
     </table>
     <br />
-    <p align="justify" style="line-height: 1.6; padding: 0 10px;">
+    <p style="line-height: 1.6; padding: 0 10px;">
       <strong>Explora</strong> fue conceptualizado y desarrollado íntegramente por mí como <strong>proyecto integrador</strong> para la materia de <strong>Desarrollo Híbrido para Móviles</strong>, impartida por el profesor <strong>Omar Gerardo Pérez Morales</strong>. En este proyecto se aplicaron arquitecturas de software modernas, gestión asíncrona de datos y modelos de Inteligencia Artificial de última generación para ofrecer una experiencia de usuario fluida y de alto impacto tecnológico.
     </p>
   </div>
