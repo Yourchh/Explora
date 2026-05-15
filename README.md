@@ -198,33 +198,42 @@ El objetivo principal de la aplicación es centralizar la experiencia de explora
 
 # Arquitectura Funcional del Sistema
 
+<br />
+
 <div align="justify">
   <p>
-    La arquitectura de <strong>Explora</strong> está diseñada bajo un modelo de <b>Capas de Servicios Coordinados asíncronamente</b>. Este enfoque garantiza la fluidez de la interfaz de usuario al mover los procesos pesados de cómputo (como el análisis de IA) fuera del hilo principal. El flujo operativo sigue este orden lógico enriquecido:
+    La arquitectura de <strong>Explora</strong> está diseñada bajo un modelo de <b>Capas de Servicios Coordinados asíncronamente</b>. Este enfoque garantiza la fluidez de la interfaz de usuario al desplazar los procesos de cómputo intensivo (como la inferencia de IA) fuera del hilo principal.
   </p>
-  <ol>
-    <li>
-      <strong>1. Adquisición y Validado de Eventos Crudos (Device Layer):</strong>
-      <p>Los sensores nativos (GPS y Cámara) capturan datos crudos. Antes de ser despachados, el sistema valida permisos y optimiza los recursos (ej. redimensionado de imágenes) en la capa del Frontend para reducir latencia y consumo de datos.</p>
-    </li>
-    <li>
-      <strong>2. Despacho Asíncrono y Enriquecimiento Semántico (Cognitive Layer):</strong>
-      <p>Los datos multimedia se despachan de forma asíncrona al motor asíncrono de **Gemini AI**. La IA realiza inferencia multimodal, devolviendo metadatos ricos (descripciones, nombres creativos, hashtags) que enriquecen semánticamente el registro original.</p>
-    </li>
-    <li>
-      <strong>3. Persistencia Reactiva y Difusión en Tiempo Real (Data Layer):</strong>
-      <p>La información enriquecida y los metadatos de IA se consolidan y almacenan en **Firebase Firestore**. Se utilizan reglas de seguridad robustas para la validación. Firestore dispara actualizaciones reactivas mediante <i>snapshots</i> hacia todos los clientes conectados, manteniendo feeds y chats sincronizados en milisegundos.</p>
-    </li>
-    <li>
-      <strong>4. Inyección Contextual y Vínculo Geográfico (Application Layer):</strong>
-      <p>Cada interacción social (mensaje, post) mantiene una referencia inyectada hacia las coordenadas geográficas originales. Esto permite al usuario iniciar una navegación contextual directa desde cualquier punto de la red social, vinculando el ecosistema social con el mapa interactivo.</p>
-    </li>
-  </ol>
+
+  <h3>1. Adquisición y Validado de Eventos Crudos (Device Layer)</h3>
+  <p>
+    Los sensores nativos (GPS y Cámara) capturan datos de entrada. Antes del despacho, el sistema gestiona permisos y optimiza recursos —como el redimensionamiento de imágenes en el Frontend— para minimizar la latencia y el consumo de datos.
+  </p>
+
+  <h3>2. Despacho Asíncrono y Enriquecimiento Semántico (Cognitive Layer)</h3>
+  <p>
+    Los activos multimedia se envían de forma asíncrona al motor de <b>Gemini 2.5 Flash</b>. La IA realiza un análisis multimodal, devolviendo metadatos enriquecidos (descripciones narrativas, nombres creativos y hashtags) que dotan de contexto semántico al registro original.
+  </p>
+
+  <h3>3. Persistencia Reactiva y Difusión en Tiempo Real (Data Layer)</h3>
+  <p>
+    La información procesada se consolida en <b>Firebase Firestore</b> bajo reglas de seguridad robustas. La base de datos dispara actualizaciones reactivas mediante <i>listeners</i> de tiempo real, manteniendo los feeds y chats sincronizados globalmente en milisegundos.
+  </p>
+
+  <h3>4. Inyección Contextual y Vínculo Geográfico (Application Layer)</h3>
+  <p>
+    Cada interacción social conserva una referencia inyectada a sus coordenadas de origen. Esto permite una navegación contextual directa, vinculando orgánicamente el ecosistema social con el mapa interactivo de la plataforma.
+  </p>
+
+  <br />
 
   <div align="center">
-<img src="./assets/images/readme/Flujo.png" width=100%/>
+    <img src="./assets/images/readme/Flujo.png" width="100%" alt="Pipeline de Procesamiento e Inferencia Multimodal" />
+    <p><i>Figura: Pipeline de Procesamiento e Inferencia Multimodal</i></p>
+  </div>
 </div>
-</div>
+
+<br />
 
 ---
 
@@ -359,28 +368,97 @@ El objetivo principal de la aplicación es centralizar la experiencia de explora
 
 ## Tecnologías Principales
 
-| Categoría        | Tecnología                    | Propósito                           |
-| ---------------- | ----------------------------- | ----------------------------------- |
-| Lenguaje         | TypeScript                    | Tipado seguro y escalabilidad       |
-| Framework Mobile | React Native                  | Desarrollo móvil multiplataforma    |
-| Framework        | Expo                          | Simplificación del ecosistema móvil |
-| Navegación       | Expo Router                   | Routing modular y navegación        |
-| UI               | React Native Components       | Interfaz multiplataforma            |
-| Backend Services | Firebase                      | Persistencia y sincronización       |
-| Base de Datos    | Firestore                     | Base de datos en tiempo real        |
-| Autenticación    | Firebase Auth                 | Gestión de usuarios                 |
-| Geolocalización  | Expo Location                 | Servicios GPS                       |
-| Cámara           | Expo Camera                   | Captura multimedia                  |
-| Mapas            | React Native Maps             | Visualización geográfica            |
-| Estado           | React Hooks / Context API     | Manejo global de estado             |
-| Notificaciones   | Expo Notifications            | Sistema push                        |
-| Tiempo Real      | Firebase Realtime / Firestore | Chat y sincronización               |
-| Iconografía      | Expo Vector Icons             | Componentes visuales                |
-| Estilos          | StyleSheet API                | Diseño responsive                   |
+<br />
+
+<div align="center">
+  <table style="width: 100%; table-layout: fixed;">
+    <thead>
+      <tr>
+        <th align="left" style="width: 25%;">Categoría</th>
+        <th align="left" style="width: 30%;">Tecnología</th>
+        <th align="left" style="width: 45%;">Propósito</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><b>Lenguaje</b></td>
+        <td>TypeScript</td>
+        <td>Tipado seguro y escalabilidad</td>
+      </tr>
+      <tr>
+        <td><b>Framework Mobile</b></td>
+        <td>React Native</td>
+        <td>Desarrollo móvil multiplataforma</td>
+      </tr>
+      <tr>
+        <td><b>Framework</b></td>
+        <td>Expo</td>
+        <td>Simplificación del ecosistema móvil</td>
+      </tr>
+      <tr>
+        <td><b>Inteligencia Artificial</b></td>
+        <td>Gemini 2.5 Flash</td>
+        <td>Inferencia multimodal y enriquecimiento de datos</td>
+      </tr>
+      <tr>
+        <td><b>Navegación</b></td>
+        <td>Expo Router</td>
+        <td>Routing modular y navegación</td>
+      </tr>
+      <tr>
+        <td><b>Backend Services</b></td>
+        <td>Firebase</td>
+        <td>Persistencia y sincronización</td>
+      </tr>
+      <tr>
+        <td><b>Base de Datos</b></td>
+        <td>Firestore</td>
+        <td>Base de datos en tiempo real</td>
+      </tr>
+      <tr>
+        <td><b>Autenticación</b></td>
+        <td>Firebase Auth</td>
+        <td>Gestión de usuarios</td>
+      </tr>
+      <tr>
+        <td><b>Geolocalización</b></td>
+        <td>Expo Location</td>
+        <td>Servicios GPS</td>
+      </tr>
+      <tr>
+        <td><b>Cámara</b></td>
+        <td>Expo Camera</td>
+        <td>Captura multimedia</td>
+      </tr>
+      <tr>
+        <td><b>Mapas</b></td>
+        <td>React Native Maps</td>
+        <td>Visualización geográfica</td>
+      </tr>
+      <tr>
+        <td><b>Estado</b></td>
+        <td>React Hooks / Context API</td>
+        <td>Manejo global de estado</td>
+      </tr>
+      <tr>
+        <td><b>Iconografía</b></td>
+        <td>Expo Vector Icons</td>
+        <td>Componentes visuales</td>
+      </tr>
+      <tr>
+        <td><b>Estilos</b></td>
+        <td>StyleSheet API / BlurView</td>
+        <td>Diseño responsive y efectos Glassmorphism</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<br />
 
 ---
 
-# 🧩 Justificación Tecnológica
+# Justificación Tecnológica
 
 ## React Native + Expo
 
