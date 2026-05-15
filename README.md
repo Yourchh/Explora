@@ -1,15 +1,16 @@
----
 <div align="center">
 <img src="./assets/images/readme/Header.png" width=100%/>
 </div>
+
 ---
 
 <div align="center">
 <img src="./assets/images/readme/Presentacion.png" width=100%/>
-
 </div>
 
-## Introducción
+---
+
+# Introducción
 
 <div align="justify">
 
@@ -32,9 +33,7 @@ El objetivo principal de la aplicación es centralizar la experiencia de explora
 
 ---
 
-## Propuesta de Valor
-
----
+# Propuesta de Valor
 
 <div align="justify">
 
@@ -44,9 +43,7 @@ El objetivo principal de la aplicación es centralizar la experiencia de explora
 
 ---
 
-## Pitch Visual
-
----
+# Pitch Visual
 
 <div align="center">
 <img src="./assets/images/readme/VistasMapa.png" width=100%/>
@@ -55,17 +52,17 @@ El objetivo principal de la aplicación es centralizar la experiencia de explora
 <br />
 
 <div align="justify">
-  <h3> Vista Mapa: Flujo de Registro Inteligente</h2>
+  <h2> Vista Mapa: Flujo de Registro Inteligente</h2>
   <p>
     El núcleo de <strong>Explora</strong> es la capacidad de transformar coordenadas geográficas en historias visuales con el mínimo esfuerzo del usuario. A continuación, se detalla el flujo de trabajo integrado en la vista de mapa:
   </p>
 
-  <h4>1. Ubicación y Contexto</h4>
+  <h3>1. Ubicación y Contexto</h3>
   <p>
     El usuario interactúa con un mapa de alta precisión (estética minimalista) para identificar su posición actual o un punto de interés. Al seleccionar una ubicación, el sistema activa el botón dinámico de <b>"Registrar Ubicación"</b>, capturando las coordenadas exactas de forma automática.
   </p>
 
-  <h4>2. Formulario Dinámico con BlurView</h4>
+  <h3>2. Formulario Dinámico con BlurView</h3>
   <p>
     Al iniciar el registro, se despliega una interfaz de usuario optimizada mediante una tarjeta con efecto de desenfoque (<i>glassmorphism</i>). Este panel organiza la información técnica y los campos creativos:
   </p>
@@ -75,7 +72,7 @@ El objetivo principal de la aplicación es centralizar la experiencia de explora
     <li><strong>Control de Privacidad:</strong> Interruptor nativo para decidir la visibilidad de la publicación.</li>
   </ul>
 
-  <h4>3. Autocompletado con IA (Multimodal)</h4>
+  <h3>3. Autocompletado con IA (Multimodal)</h3>
   <p>
     Mediante la integración con <b>Gemini AI</b>, el sistema ofrece un análisis automático de las fotografías:
   </p>
@@ -85,15 +82,11 @@ El objetivo principal de la aplicación es centralizar la experiencia de explora
     <li><strong>Clasificación Inteligente:</strong> Generación de <i>#Hashtags</i> para facilitar la búsqueda y escalabilidad.</li>
   </ul>
 
-  <h4>4. Publicación y Sincronización</h4>
+  <h3>4. Publicación y Sincronización</h3>
   <p>
     Una vez validado, el registro se sincroniza con <b>Firebase Firestore</b>, apareciendo instantáneamente en el feed social y en la bitácora personal, garantizando fluidez bajo una arquitectura móvil moderna.
   </p>
 </div>
-
-<br />
-
----
 
 <br />
 
@@ -104,35 +97,31 @@ El objetivo principal de la aplicación es centralizar la experiencia de explora
 <br />
 
 <div align="justify">
-  <h3>Vista Explorar: Descubrimiento y Conexión Comunitaria</h3>
+  <h2>Vista Explorar: Descubrimiento y Conexión Comunitaria</h2>
   <p>
     La sección <strong>Explorar</strong> actúa como el motor de descubrimiento de la plataforma, permitiendo a los usuarios conectar con experiencias compartidas por la comunidad a través de herramientas de búsqueda avanzada y análisis semántico. A continuación, se detalla el flujo de exploración:
   </p>
 
-  <h4>1. Búsqueda y Filtrado Inteligente</h4>
+  <h3>1. Búsqueda y Filtrado Inteligente</h3>
   <p>
     La interfaz presenta un buscador global optimizado para nombres, categorías o etiquetas. Se implementa un sistema de <b>filtros rápidos (Chips)</b> que permiten segmentar resultados de forma instantánea: desde ubicaciones "Cerca de mí" hasta categorías específicas como #Naturaleza o #Cascada, facilitando una navegación fluida entre miles de registros.
   </p>
 
-  <h4>2. Visualización de Resultados Dinámica</h4>
+  <h3>2. Visualización de Resultados Dinámica</h3>
   <p>
     Los resultados se despliegan en una lista de tarjetas interactivas que priorizan el contenido visual. Cada tarjeta ofrece un resumen ejecutivo del lugar: nombre del autor, imagen destacada y hashtags principales. Esta arquitectura permite al usuario evaluar rápidamente los puntos de interés antes de profundizar en los detalles.
   </p>
 
-  <h4>3. Análisis Semántico con IA (Gemini AI)</h4>
+  <h3>3. Análisis Semántico con IA (Gemini AI)</h3>
   <p>
     Al seleccionar un lugar, <b>Explora</b> utiliza Inteligencia Artificial para procesar el sentimiento colectivo. La funcionalidad <b>"¿Qué dice la comunidad? (IA)"</b> analiza todas las reseñas de los usuarios para generar un resumen inteligente, extrayendo los puntos positivos y las advertencias relevantes, ahorrando al usuario la lectura de decenas de comentarios individuales.
   </p>
 
-  <h4>4. Interacción y Reseñas Multimodales</h4>
+  <h3>4. Interacción y Reseñas Multimodales</h3>
   <p>
     La vista detallada permite al usuario iniciar navegación directa (botón "Ir") o compartir el hallazgo con amigos. El sistema de <b>Reseñas</b> permite una interacción bidireccional donde los usuarios califican con estrellas y texto, contando además con asistencia de IA para <b>"Sugerir opinión"</b>, optimizando la participación social dentro del ecosistema.
   </p>
 </div>
-
-<br />
-
----
 
 <br />
 
@@ -142,27 +131,27 @@ El objetivo principal de la aplicación es centralizar la experiencia de explora
 <br />
 
 <div align="justify">
-  <h3>Vista Guardados: Gestión y Organización Personal</h3>
+  <h2>Vista Guardados: Gestión y Organización Personal</h2>
   <p>
     La sección <strong>Guardados</strong> constituye la bitácora personal del usuario, ofreciendo una interfaz robusta para administrar el historial de exploraciones, personalizar la privacidad y organizar los hallazgos mediante herramientas de gestión avanzada.
   </p>
 
-  <h4>1. Organización y Filtrado de Bitácora</h4>
+  <h3>1. Organización y Filtrado de Bitácora</h3>
   <p>
     El usuario dispone de una biblioteca centralizada con todas sus ubicaciones registradas. Se implementa un sistema de <b>filtros inteligentes (Recientes, Favoritos, Nombre, Zona)</b> que permite localizar entradas específicas de forma ágil, permitiendo al explorador tener un control total sobre su patrimonio de viajes.
   </p>
 
-  <h4>2. Acceso Rápido y Menú Contextual</h4>
+  <h3>2. Acceso Rápido y Menú Contextual</h3>
   <p>
     Mediante una pulsación prolongada (<i>Long Press</i>), se despliega un menú de <b>Opciones Rápidas</b> con efecto de desenfoque. Desde aquí, el usuario puede alternar instantáneamente entre estados de "Destacado", modificar la visibilidad (Público/Privado), enviar el lugar a un amigo o realizar una exportación compartida externa.
   </p>
 
-  <h4>3. Interacciones por Deslizamiento (Swipe Actions)</h4>
+  <h3>3. Interacciones por Deslizamiento (Swipe Actions)</h3>
   <p>
     Optimizando la experiencia en dispositivos móviles, se han integrado <b>Swipe Actions</b> intuitivos en cada tarjeta. Deslizar hacia la izquierda revela botones de acción directa: un acceso rápido para <b>Editar</b> los detalles del lugar y un botón de <b>Eliminar</b> con confirmación, permitiendo una limpieza de bitácora rápida y fluida.
   </p>
 
-  <h4>4. Edición Avanzada con Soporte de IA</h4>
+  <h3>4. Edición Avanzada con Soporte de IA</h3>
   <p>
     La vista de edición permite modificar la galería de fotos y actualizar la narrativa de la entrada. Se mantiene la integración con <b>Gemini AI</b> mediante el botón "Auto-completar", permitiendo al usuario regenerar o pulir la descripción y hashtags del lugar basándose en las imágenes actuales, asegurando que cada registro mantenga una calidad profesional.
   </p>
@@ -177,27 +166,27 @@ El objetivo principal de la aplicación es centralizar la experiencia de explora
 <br />
 
 <div align="justify">
-  <h3>Vista Social: Ecosistema Colaborativo y Comunidad</h3>
+  <h2>Vista Social: Ecosistema Colaborativo y Comunidad</h2>
   <p>
     La sección <strong>Social</strong> constituye el núcleo de interacción de la plataforma. Está diseñada bajo una arquitectura de pestañas dinámicas que facilita la gestión de grupos, la comunicación directa y la personalización de la identidad digital del explorador.
   </p>
 
-  <h4>1. Feed Comunitario e Interacción</h4>
+  <h3>1. Feed Comunitario e Interacción</h3>
   <p>
     El <b>Feed</b> presenta una línea de tiempo fluida con las recomendaciones de la comunidad. Cada publicación integra un motor de interacción social que permite reaccionar, comentar y compartir. Se incluye un acceso directo de <b>Geolocalización</b> ("Ir a ubicación") que vincula el contenido social con el mapa interactivo, cerrando el ciclo de descubrimiento.
   </p>
 
-  <h4>2. Gestión de Grupos y Comunidades</h4>
+  <h3>2. Gestión de Grupos y Comunidades</h3>
   <p>
     El módulo de <b>Grupos</b> permite a los usuarios unirse a comunidades existentes o fundar nuevas. Se implementa un sistema de validación donde el botón de acción cambia dinámicamente de "Unirse" a "Abrir" según el estado de pertenencia. Cada comunidad cuenta con un identificador único (<i>Cód.</i>) para facilitar el crecimiento orgánico mediante invitaciones directas.
   </p>
 
-  <h4>3. Centro de Mensajería y Conexiones</h4>
+  <h3>3. Centro de Mensajería y Conexiones</h3>
   <p>
     La pestaña de <b>Chat</b> centraliza la comunicación privada y grupal. Se organiza en dos niveles: una fila superior de <b>Acceso Rápido a Grupos</b> para una navegación ágil y una lista vertical de <b>Conexiones Personales</b>. La interfaz utiliza indicadores visuales de estado y previsualizaciones de mensajes para mejorar la retención y el engagement.
   </p>
 
-  <h4>4. Identidad Visual y Perfil de Usuario</h4>
+  <h3>4. Identidad Visual y Perfil de Usuario</h3>
   <p>
     La sección de <b>Perfil</b> ofrece un panel de configuración estética y técnica. Los usuarios pueden personalizar su avatar, banner de encabezado y biografía. Además, se integra un generador de <b>Código de Amigo Único</b> con función de copiado rápido, permitiendo que la red social se expanda mediante la vinculación directa entre exploradores.
   </p>
@@ -207,9 +196,51 @@ El objetivo principal de la aplicación es centralizar la experiencia de explora
 
 ---
 
-## Arquitectura Funcional del Sistema
+# Arquitectura Funcional del Sistema
 
-## Características y Capacidades
+<div align="justify">
+  <p>
+    La arquitectura de <strong>Explora</strong> está diseñada bajo un modelo de <b>Capas de Servicios Coordinados asíncronamente</b>. Este enfoque garantiza la fluidez de la interfaz de usuario al mover los procesos pesados de cómputo (como el análisis de IA) fuera del hilo principal. El flujo operativo sigue este orden lógico enriquecido:
+  </p>
+  <ol>
+    <li>
+      <strong>1. Adquisición y Validado de Eventos Crudos (Device Layer):</strong>
+      <p>Los sensores nativos (GPS y Cámara) capturan datos crudos. Antes de ser despachados, el sistema valida permisos y optimiza los recursos (ej. redimensionado de imágenes) en la capa del Frontend para reducir latencia y consumo de datos.</p>
+    </li>
+    <li>
+      <strong>2. Despacho Asíncrono y Enriquecimiento Semántico (Cognitive Layer):</strong>
+      <p>Los datos multimedia se despachan de forma asíncrona al motor asíncrono de **Gemini AI**. La IA realiza inferencia multimodal, devolviendo metadatos ricos (descripciones, nombres creativos, hashtags) que enriquecen semánticamente el registro original.</p>
+    </li>
+    <li>
+      <strong>3. Persistencia Reactiva y Difusión en Tiempo Real (Data Layer):</strong>
+      <p>La información enriquecida y los metadatos de IA se consolidan y almacenan en **Firebase Firestore**. Se utilizan reglas de seguridad robustas para la validación. Firestore dispara actualizaciones reactivas mediante <i>snapshots</i> hacia todos los clientes conectados, manteniendo feeds y chats sincronizados en milisegundos.</p>
+    </li>
+    <li>
+      <strong>4. Inyección Contextual y Vínculo Geográfico (Application Layer):</strong>
+      <p>Cada interacción social (mensaje, post) mantiene una referencia inyectada hacia las coordenadas geográficas originales. Esto permite al usuario iniciar una navegación contextual directa desde cualquier punto de la red social, vinculando el ecosistema social con el mapa interactivo.</p>
+    </li>
+  </ol>
+</div>
+
+---
+
+# Características y Capacidades
+
+## Inteligencia Artificial (Gemini AI)
+
+### Capacidades
+
+- Interpretación avanzada de imágenes para comprender el contexto del lugar.
+- Redacción automática de nombres creativos y descripciones detalladas.
+- Resúmenes inteligentes del sentimiento de la comunidad.
+- Sugerencia de reseñas y respuestas automáticas.
+
+### Funcionalidades técnicas
+
+- Integración con el SDK de Google Generative AI.
+- Procesamiento de Prompts optimizados para modelos Gemini 1.5 Flash.
+- Análisis de metadatos multimedia para extracción de etiquetas (#Hashtags).
+- Sincronización de respuestas generadas con estados de React.
 
 ## Sistema de Geolocalización GPS
 
@@ -228,9 +259,7 @@ El objetivo principal de la aplicación es centralizar la experiencia de explora
 - Actualización dinámica de coordenadas
 - Renderizado de marcadores geográficos
 
----
-
-## 🗺️ Módulo de Mapas Interactivos
+## Módulo de Mapas Interactivos
 
 ### Capacidades
 
@@ -244,11 +273,9 @@ El objetivo principal de la aplicación es centralizar la experiencia de explora
 - Renderizado de mapas dinámicos
 - Sincronización con datos de ubicación
 - Gestión de capas geográficas
-- Actualización en tiempo real
+- Actualización en tiempo rea
 
----
-
-## 📸 Integración con Cámara
+## Integración con Cámara
 
 ### Capacidades
 
@@ -263,9 +290,7 @@ El objetivo principal de la aplicación es centralizar la experiencia de explora
 - Procesamiento de imágenes
 - Asociación de contenido visual con ubicaciones
 
----
-
-## 💬 Sistema de Chat en Tiempo Real
+## Sistema de Chat en Tiempo Real
 
 ### Capacidades
 
@@ -280,9 +305,7 @@ El objetivo principal de la aplicación es centralizar la experiencia de explora
 - Actualización reactiva de conversaciones
 - Arquitectura basada en eventos
 
----
-
-## 👥 Sistema Social y Comunidades
+## Sistema Social y Comunidades
 
 ### Capacidades
 
@@ -298,9 +321,7 @@ El objetivo principal de la aplicación es centralizar la experiencia de explora
 - Actualización dinámica de feeds
 - Arquitectura modular social
 
----
-
-## 🔖 Sistema de Guardados
+## Sistema de Guardados
 
 ### Capacidades
 
@@ -314,9 +335,7 @@ El objetivo principal de la aplicación es centralizar la experiencia de explora
 - Sincronización de favoritos
 - Gestión de estados
 
----
-
-## 🔐 Sistema de Autenticación
+## Sistema de Autenticación
 
 ### Capacidades
 
@@ -332,23 +351,7 @@ El objetivo principal de la aplicación es centralizar la experiencia de explora
 
 ---
 
-## 🔔 Sistema de Notificaciones
-
-### Capacidades
-
-- Alertas en tiempo real
-- Eventos contextuales
-- Actualizaciones sociales
-
-### Funcionalidades técnicas
-
-- Integración con servicios push
-- Gestión de eventos asincrónicos
-- Sistema reactivo de alertas
-
----
-
-# 🧱 Stack Tecnológico
+# Stack Tecnológico
 
 ## Tecnologías Principales
 
