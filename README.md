@@ -594,19 +594,126 @@ Utilizada para:
 
 ---
 
-# 📂 Estructura General del Proyecto
+# Estructura General del Proyecto
 
 ```bash
 Explora/
+├── app/                       # Directorio principal de rutas (Expo Router)
+│   ├── (auth)/                # Flujos de autenticación (Login, Registro)
+│   ├── (tabs)/                # Navegación principal por pestañas
+│   │   ├── biblioteca.tsx     # Gestión de lugares guardados
+│   │   ├── buscar.tsx         # Motor de exploración y comunidad
+│   │   ├── comunidad.tsx      # Gestión de grupos y chat social
+│   │   └── mapa.tsx           # Vista interactiva principal
+│   ├── api/                   # Backend de la App (Serverless Functions)
+│   │   ├── analizar-imagen+api.ts # Endpoint para integración con Gemini 2.5
+│   │   └── registro+api.ts    # Lógica de registro en base de datos
+│   ├── _layout.tsx            # Configuración de Temas y Providers globales
+│   ├── index.tsx              # Punto de entrada lógico
+│   └── onboarding.tsx         # Pantallas de bienvenida e introducción
 │
-├── app/
-├── assets/
-├── components/
-├── hooks/
-├── services/
-├── constants/
-├── utils/
-├── contexts/
-├── firebase/
-└── types/
+├── assets/                    # Recursos estáticos
+│   ├── fonts/                 # Tipografías personalizadas
+│   └── images/                # Assets visuales y recursos para el README
+│
+├── components/                # Componentes atómicos y modulares
+│   ├── biblioteca/            # UI específica para la gestión de archivos
+│   ├── buscar/                # UI para filtros y listas de exploración
+│   ├── loginRegister/         # Componentes de entrada y botones de acceso
+│   ├── mapa/                  # Formularios y tarjetas detalladas del mapa
+│   └── Shared/                # Componentes reutilizables (Modales, TabItems)
+│
+├── constants/                 # Valores globales y configuración de diseño
+│   └── theme.ts               # Paleta de colores y estilos globales
+│
+├── hooks/                     # Lógica de estado y utilidades personalizadas
+│   ├── useBiblioteca.ts       # Hook para gestión de datos de usuario
+│   └── use-theme-color.ts     # Hook para soporte de Dark/Light mode
+│
+├── scripts/                   # Scripts de mantenimiento y configuración
+│   └── reset-project.js       # Utilidad para limpieza de boilerplate
+│
+├── firebaseConfig.ts          # Configuración e inicialización de Firebase
+├── app.json                   # Configuración nativa de Expo
+├── package.json               # Dependencias y scripts de ejecución
+└── tsconfig.json              # Configuración de TypeScript
 ```
+---
+
+# Instalación y Uso
+
+## Sigue estos pasos para configurar el entorno de desarrollo y ejecutar la aplicación localmente.
+
+### 1. Prerrequisitos
+
+Es necesario contar con las siguientes herramientas:
+* **Node.js** (Versión LTS recomendada).
+* **Expo Go** instalado en un dispositivo móvil o un emulador de iOS/Android.
+* Proyecto configurado en **Firebase Console**.
+* API Key de **Google AI Studio** (para el motor Gemini).
+
+### 2. Clonación e Instalación
+
+```bash
+# Clonar el repositorio
+git clone [https://github.com/Yourchh/Explora.git](https://github.com/Yourchh/Explora.git)
+
+# Acceder al directorio
+cd Explora
+
+# Instalar dependencias
+npm install
+```
+### 3. Configuración de Entorno
+
+Crea un archivo .env en la raíz del proyecto con las siguientes variables (puedes basarte en el archivo .env.example):
+
+```bash
+EXPO_PUBLIC_FIREBASE_API_KEY=tu_api_key
+EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN=tu_dominio.firebaseapp.com
+EXPO_PUBLIC_FIREBASE_PROJECT_ID=tu_proyecto_id
+EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET=tu_bucket.appspot.com
+EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=tu_sender_id
+EXPO_PUBLIC_FIREBASE_APP_ID=tu_app_id
+EXPO_PUBLIC_GEMINI_API_KEY=tu_clave_de_google_ai_studio
+```
+### 4. Despliegue
+
+Inicia el servidor de desarrollo de Expo:
+
+```bash
+npx expo start
+```
+Escanea el código QR generado con la aplicación Expo Go para visualizar la app en tiempo real.
+
+---
+
+# Autor
+
+<div align="center">
+  <div style="border: 1px solid #e1e4e8; border-radius: 20px; padding: 25px; max-width: 800px; background-color: transparent; box-shadow: 0 4px 6px rgba(0,0,0,0.05);">
+    <table style="width: 100%; table-layout: fixed; border: none; border-collapse: collapse;">
+      <tr>
+        <td align="center" style="border: none;">
+          <img src="https://github.com/Yourchh.png" width="150px;" style="border-radius: 50%;" alt="Jorge Hernandez"/>
+          <br />
+          <br />
+          <b style="font-size: 1.4em;">Jorge Andres Hernandez Pelayo</b>
+          <br />
+          <sub>Estudiante de Ingeniería en Sistemas Computacionales</sub>
+          <br />
+          <br />
+          <a href="https://github.com/Yourchh" target="_blank">
+            <img src="https://img.shields.io/badge/GitHub-181717?style=for-the-badge&logo=github&logoColor=white" alt="Github Badge" />
+          </a>
+        </td>
+      </tr>
+    </table>
+    <br />
+    <p align="justify" style="line-height: 1.6; padding: 0 10px;">
+      <strong>Explora</strong> fue conceptualizado y desarrollado íntegramente por mí como <strong>proyecto integrador</strong> para la materia de <strong>Desarrollo Híbrido para Móviles</strong>, impartida por el profesor <strong>Omar Gerardo Pérez Morales</strong>. En este proyecto se aplicaron arquitecturas de software modernas, gestión asíncrona de datos y modelos de Inteligencia Artificial de última generación para ofrecer una experiencia de usuario fluida y de alto impacto tecnológico.
+    </p>
+  </div>
+</div>
+
+---
