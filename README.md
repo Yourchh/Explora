@@ -503,7 +503,7 @@ Implementado para:
 
 |                                               Vista Login                                                |                                               Vista Registro                                               |                                                 Vista Acceso                                                  |
 | :---------------------------------------------------------------------------------------------------------: | :---------------------------------------------------------------------------------------------------------: | :---------------------------------------------------------------------------------------------------------: |
-| <img src="./assets/images/readme/login.png" width="200" /> | <img src="./assets/images/readme/register.png" width="200" /> | <video src="https://github.com/user-attachments/assets/da0ef8be-6e39-41d3-a457-4b753eaa3261" width="200" /> |
+| <img src="./assets/images/readme/login.png" width="300" /> | <img src="./assets/images/readme/register.png" width="300" /> | <video src="https://github.com/user-attachments/assets/da0ef8be-6e39-41d3-a457-4b753eaa3261" width="300" /> |
 
 ---
 
