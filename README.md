@@ -495,11 +495,11 @@ Implementado para:
 
 ---
 
-# 🎬 Showcase y Demos
+# Showcase y Demos
 
-## 📱 Demostración de la App
+## Demostración de la App
 
-### 🔐 Acceso y Perfil
+### Acceso y Perfil
 
 |                                          Registro, Perfil y Login                                           |
 | :---------------------------------------------------------------------------------------------------------: |
@@ -507,7 +507,7 @@ Implementado para:
 
 ---
 
-### 🌍 Exploración y Mapa
+### Exploración y Mapa
 
 |                                               Vista Explorar                                                |                                               Vista Guardados                                               |                                                 Vista Mapa                                                  |
 | :---------------------------------------------------------------------------------------------------------: | :---------------------------------------------------------------------------------------------------------: | :---------------------------------------------------------------------------------------------------------: |
@@ -515,31 +515,66 @@ Implementado para:
 
 ---
 
-### 💬 Sección Social
+### Sección Social
 
 |                                                Chat en Vivo                                                 |                                              Feed de Noticias                                               |                                             Grupos Comunitarios                                             |
 | :---------------------------------------------------------------------------------------------------------: | :---------------------------------------------------------------------------------------------------------: | :---------------------------------------------------------------------------------------------------------: |
 | <video src="https://github.com/user-attachments/assets/7420eef8-d7e4-4428-9fa8-b16ad14ad3b9" width="200" /> | <video src="https://github.com/user-attachments/assets/786773f0-1504-4055-830e-221ee79fa483" width="200" /> | <video src="https://github.com/user-attachments/assets/907d5074-f896-4922-9e1e-22e24b964c2d" width="200" /> |
 
-# 🧪 Especificaciones Técnicas
+# Especificaciones Técnicas
 
-# 📋 Requisitos del Sistema
+# Requisitos del Sistema
 
-| Requisito         | Especificación                     |
-| ----------------- | ---------------------------------- |
-| Sistema Operativo | Android / iOS                      |
-| RAM Recomendada   | 4 GB o superior                    |
-| GPS               | Requerido                          |
-| Cámara            | Requerida                          |
-| Internet          | Requerido                          |
-| Sensores          | Geolocalización activa             |
-| Permisos          | Cámara, ubicación y notificaciones |
+<br />
+
+<div align="center">
+  <table style="width: 100%; table-layout: fixed;">
+    <thead>
+      <tr>
+        <th align="left" style="width: 40%;">Requisito</th>
+        <th align="left" style="width: 60%;">Especificación</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><b>Sistema Operativo</b></td>
+        <td>Android / iOS (Multiplataforma)</td>
+      </tr>
+      <tr>
+        <td><b>RAM Recomendada</b></td>
+        <td>4 GB o superior</td>
+      </tr>
+      <tr>
+        <td><b>GPS</b></td>
+        <td>Requerido (Servicios de ubicación activos)</td>
+      </tr>
+      <tr>
+        <td><b>Cámara</b></td>
+        <td>Requerida (Para registro multimedia e IA Vision)</td>
+      </tr>
+      <tr>
+        <td><b>Conectividad</b></td>
+        <td>Internet (Requerido para sincronización en tiempo real e IA)</td>
+      </tr>
+      <tr>
+        <td><b>Sensores</b></td>
+        <td>Geolocalización activa y acelerómetro</td>
+      </tr>
+      <tr>
+        <td><b>Permisos del Sistema</b></td>
+        <td>Cámara, ubicación, notificaciones y almacenamiento</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<br />
 
 ---
 
-# 🔌 Integraciones de Hardware
+# Integraciones de Hardware
 
-## 📍 GPS
+## GPS
 
 Utilizado para:
 
@@ -549,23 +584,13 @@ Utilizado para:
 
 ---
 
-## 📸 Cámara
+## Cámara
 
 Utilizada para:
 
 - Captura multimedia
 - Registro visual
 - Publicaciones sociales
-
----
-
-## 🔔 Sistema de Notificaciones
-
-Utilizado para:
-
-- Alertas en tiempo real
-- Eventos sociales
-- Actualizaciones dinámicas
 
 ---
 
