@@ -220,6 +220,10 @@ El objetivo principal de la aplicación es centralizar la experiencia de explora
       <p>Cada interacción social (mensaje, post) mantiene una referencia inyectada hacia las coordenadas geográficas originales. Esto permite al usuario iniciar una navegación contextual directa desde cualquier punto de la red social, vinculando el ecosistema social con el mapa interactivo.</p>
     </li>
   </ol>
+
+  <div align="center">
+<img src="./assets/images/readme/Flujo.png" width=100%/>
+</div>
 </div>
 
 ---
